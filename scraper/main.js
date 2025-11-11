@@ -9,9 +9,9 @@ async function sleep(ms) {
 }
 
 async function populateModuleTable() {
-  const machines = new Set();
+  const allMachines = new Set();
 
-  for (let i = 1; i <= 300; i++) {
+  for (let i = 0; i <= 500; i++) {
     try {
       const response = await axios.get(`https://academy.hackthebox.com/api/v2/modules/${i}`, {
         headers: {
@@ -45,9 +45,20 @@ async function populateModuleTable() {
           image: data.avatar || data.logo,
         };
 
-        // const relatedMachines = data.related.machines;
-        // const machineIds = new Set(relatedMachines.map((machine) => machine.id));
-        // const machineIdArray = Array.from(machineIds);
+        const relatedMachines = data.related?.machines || [];
+
+        // Add machines to our global set for deduplication
+        relatedMachines.forEach((machine) => {
+          allMachines.add(
+            JSON.stringify({
+              id: machine.id,
+              name: machine.name,
+              os: machine.os,
+              difficulty: machine.difficulty,
+              logo: machine.logo,
+            }),
+          );
+        });
 
         const client = await pool.connect();
         try {
@@ -88,6 +99,79 @@ async function populateModuleTable() {
 
     // console.log(`Waiting ${DELAY_BETWEEN_REQUESTS / 1000} seconds before next request...`);
     await sleep(DELAY_BETWEEN_REQUESTS);
+  }
+
+  // Process unique machines
+  console.log(`Found ${allMachines.size} unique machines to process`);
+
+  for (const machineStr of allMachines) {
+    const machine = JSON.parse(machineStr);
+    await addMachineToDatabase(machine.id, machine.name, machine.os, machine.difficulty, machine.logo);
+    await sleep(DELAY_BETWEEN_REQUESTS);
+  }
+}
+
+async function addMachineToDatabase(id, name, os, difficulty, logo) {
+  try {
+    const response = await axios.get(`https://labs.hackthebox.com/api/v4/machine/profile/${name}`, {
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.5",
+        Authorization: process.env.HTB_BEARER,
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        Host: "labs.hackthebox.com",
+        Origin: "https://app.hackthebox.com",
+        Pragma: "no-cache",
+        Referer: "https://app.hackthebox.com/",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-site",
+        "Sec-Gpc": "1",
+        Te: "trailers",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0",
+      },
+    });
+
+    if (response.status === 200) {
+      console.log(`Machine ${name} fetched successfully`);
+      const machineData = response.data.info;
+      const machineSynopsis = machineData.synopsis;
+
+      const client = await pool.connect();
+      try {
+        const insertQuery = `
+          INSERT INTO machines (id, name, synopsis, difficulty, os, url, image)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (id) DO UPDATE SET
+            name = EXCLUDED.name,
+            synopsis = EXCLUDED.synopsis,
+            difficulty = EXCLUDED.difficulty,
+            os = EXCLUDED.os,
+            url = EXCLUDED.url,
+            image = EXCLUDED.image
+        `;
+
+        await client.query(insertQuery, [
+          id,
+          name,
+          machineSynopsis,
+          difficulty,
+          os,
+          `https://app.hackthebox.com/machines/${name}`,
+          logo,
+        ]);
+
+        console.log(`Machine ${name} inserted successfully`);
+      } catch (dbError) {
+        console.error(`Database error for machine ${name}:`, dbError.message);
+      } finally {
+        client.release();
+      }
+    }
+  } catch (error) {
+    console.error(`Error fetching machine ${name}:`, error.message);
+    return null;
   }
 }
 
