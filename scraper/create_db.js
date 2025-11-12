@@ -30,6 +30,21 @@ async function createDB() {
         name VARCHAR(255) NOT NULL,
         logo VARCHAR(255)
       );
+
+      CREATE TABLE IF NOT EXISTS areas_of_interest (
+        id INT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS vulnerabilities (
+        id INT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS languages (
+        id INT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL
+      );
     `;
 
     console.log("Creating tables...");

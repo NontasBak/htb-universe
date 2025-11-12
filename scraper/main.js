@@ -207,9 +207,133 @@ async function populateExamTable() {
   }
 }
 
+async function populateTagsTables() {
+  const client = await pool.connect();
+  try {
+    const machines = await client.query("SELECT id FROM machines");
+    const machineIds = machines.rows.map((row) => row.id);
+
+    const areasOfInterest = new Map();
+    const vulnerabilities = new Map();
+    const languages = new Map();
+
+    console.log(`Processing tags for ${machineIds.length} machines...`);
+
+    for (const id of machineIds) {
+      try {
+        const response = await axios.get(`https://labs.hackthebox.com/api/v4/machine/tags/${id}`, {
+          headers: {
+            Accept: "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.5",
+            Authorization: process.env.HTB_BEARER,
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+            Host: "labs.hackthebox.com",
+            Origin: "https://app.hackthebox.com",
+            Pragma: "no-cache",
+            Referer: "https://app.hackthebox.com/",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site",
+            "Sec-Gpc": "1",
+            Te: "trailers",
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0",
+          },
+        });
+
+        if (response.status === 200 && response.data.info) {
+          const tags = response.data.info;
+
+          tags.forEach((tag) => {
+            switch (tag.category) {
+              case "Area of Interest":
+                areasOfInterest.set(tag.id, tag.name);
+                break;
+              case "Vulnerability":
+                vulnerabilities.set(tag.id, tag.name);
+                break;
+              case "Language":
+                languages.set(tag.id, tag.name);
+                break;
+              default:
+              // console.log(`Unknown tag category: ${tag.category} for tag: ${tag.name}`);
+            }
+          });
+
+          console.log(`Processed tags for machine ${id}`);
+        }
+
+        await sleep(DELAY_BETWEEN_REQUESTS);
+      } catch (error) {
+        console.error(`Error fetching tags for machine ${id}:`, error.message);
+        await sleep(DELAY_BETWEEN_REQUESTS);
+      }
+    }
+
+    console.log(
+      `Found ${areasOfInterest.size} areas of interest, ${vulnerabilities.size} vulnerabilities, ${languages.size} languages`,
+    );
+
+    // Insert areas of interest
+    for (const [id, name] of areasOfInterest) {
+      try {
+        const insertQuery = `
+          INSERT INTO areas_of_interest (id, name)
+          VALUES ($1, $2)
+          ON CONFLICT (id) DO UPDATE SET
+            name = EXCLUDED.name
+        `;
+        await client.query(insertQuery, [id, name]);
+        console.log(`Inserted area of interest: ${name}`);
+      } catch (error) {
+        console.error(`Error inserting area of interest ${name}:`, error.message);
+      }
+    }
+
+    // Insert vulnerabilities
+    for (const [id, name] of vulnerabilities) {
+      try {
+        const insertQuery = `
+          INSERT INTO vulnerabilities (id, name)
+          VALUES ($1, $2)
+          ON CONFLICT (id) DO UPDATE SET
+            name = EXCLUDED.name
+        `;
+        await client.query(insertQuery, [id, name]);
+        console.log(`Inserted vulnerability: ${name}`);
+      } catch (error) {
+        console.error(`Error inserting vulnerability ${name}:`, error.message);
+      }
+    }
+
+    // Insert languages
+    for (const [id, name] of languages) {
+      try {
+        const insertQuery = `
+          INSERT INTO languages (id, name)
+          VALUES ($1, $2)
+          ON CONFLICT (id) DO UPDATE SET
+            name = EXCLUDED.name
+        `;
+        await client.query(insertQuery, [id, name]);
+        console.log(`Inserted language: ${name}`);
+      } catch (error) {
+        console.error(`Error inserting language ${name}:`, error.message);
+      }
+    }
+
+    console.log("Tags population completed successfully!");
+  } catch (error) {
+    console.error(`Error in populateTagsTables:`, error.message);
+  } finally {
+    client.release();
+  }
+}
+
 async function main() {
   await populateModuleTable();
   await populateExamTable();
+  await populateTagsTables();
 }
 
 main();
