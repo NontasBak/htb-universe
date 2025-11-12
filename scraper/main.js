@@ -175,8 +175,41 @@ async function addMachineToDatabase(id, name, os, difficulty, logo) {
   }
 }
 
+async function populateExamTable() {
+  try {
+    const response = await axios.get("https://academy.hackthebox.com/api/v2/external/public/labs/exams");
+
+    if (response.status === 200) {
+      const exams = response.data.data;
+
+      const client = await pool.connect();
+      try {
+        for (const exam of exams) {
+          const insertQuery = `
+            INSERT INTO exams (id, name, logo)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (id) DO UPDATE SET
+              name = EXCLUDED.name,
+              logo = EXCLUDED.logo
+          `;
+
+          await client.query(insertQuery, [exam.id, exam.name, exam.logo]);
+          console.log(`Exam ${exam.name} inserted successfully`);
+        }
+      } catch (dbError) {
+        console.error(`Database error for exam:`, dbError.message);
+      } finally {
+        client.release();
+      }
+    }
+  } catch (error) {
+    console.error(`Error fetching exams:`, error.message);
+  }
+}
+
 async function main() {
   await populateModuleTable();
+  await populateExamTable();
 }
 
 main();

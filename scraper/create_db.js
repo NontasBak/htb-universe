@@ -24,6 +24,12 @@ async function createDB() {
         url VARCHAR(255),
         image VARCHAR(255)
       );
+
+      CREATE TABLE IF NOT EXISTS exams (
+        id INT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        logo VARCHAR(255)
+      );
     `;
 
     console.log("Creating tables...");
