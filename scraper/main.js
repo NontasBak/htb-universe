@@ -100,6 +100,37 @@ async function fetchExamsData() {
   }
 }
 
+async function fetchExamModules(examId) {
+  try {
+    const response = await axios.get(
+      `https://academy.hackthebox.com/api/v2/external/public/labs/relations/exams/${examId}`,
+      {
+        headers: {
+          Accept: "application/json, text/plain, */*",
+          "Accept-Language": "en-US,en;q=0.5",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+          Cookie: process.env.HTB_COOKIE,
+          Host: "academy.hackthebox.com",
+          Pragma: "no-cache",
+          Referer:
+            "https://academy.hackthebox.com/academy-relations/exams/htb-certified-junior-cybersecurity-associate",
+          "Sec-Fetch-Dest": "empty",
+          "Sec-Fetch-Mode": "cors",
+          "Sec-Fetch-Site": "same-origin",
+          "Sec-Gpc": "1",
+          "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      },
+    );
+    return response.status === 200 ? response.data.data.modules : [];
+  } catch (error) {
+    console.error(`Error fetching exam ${examId} modules:`, error.message);
+    return [];
+  }
+}
+
 // Database operations
 async function insertModule(moduleData) {
   const client = await pool.connect();
@@ -220,6 +251,76 @@ async function getAllMachineIds() {
   }
 }
 
+async function insertMachineModuleRelationship(machineId, moduleId) {
+  const client = await pool.connect();
+  try {
+    const insertQuery = `
+      INSERT INTO machine_modules (machine_id, module_id)
+      VALUES ($1, $2)
+      ON CONFLICT (machine_id, module_id) DO NOTHING
+    `;
+    await client.query(insertQuery, [machineId, moduleId]);
+  } catch (error) {
+    console.error(`Error inserting machine-module relationship (${machineId}, ${moduleId}):`, error.message);
+  } finally {
+    client.release();
+  }
+}
+
+async function insertModuleExamRelationship(moduleId, examId) {
+  const client = await pool.connect();
+  try {
+    const insertQuery = `
+      INSERT INTO module_exams (module_id, exam_id)
+      VALUES ($1, $2)
+      ON CONFLICT (module_id, exam_id) DO NOTHING
+    `;
+    await client.query(insertQuery, [moduleId, examId]);
+  } catch (error) {
+    console.error(`Error inserting module-exam relationship (${moduleId}, ${examId}):`, error.message);
+  } finally {
+    client.release();
+  }
+}
+
+async function insertMachineTagRelationships(machineId, tags) {
+  const client = await pool.connect();
+  try {
+    for (const tag of tags) {
+      let tableName;
+      let columnName;
+
+      switch (tag.category) {
+        case "Area of Interest":
+          tableName = "machine_areas_of_interest";
+          columnName = "area_id";
+          break;
+        case "Vulnerability":
+          tableName = "machine_vulnerabilities";
+          columnName = "vulnerability_id";
+          break;
+        case "Language":
+          tableName = "machine_languages";
+          columnName = "language_id";
+          break;
+        default:
+          continue; // Skip unknown categories
+      }
+
+      const insertQuery = `
+        INSERT INTO ${tableName} (machine_id, ${columnName})
+        VALUES ($1, $2)
+        ON CONFLICT (machine_id, ${columnName}) DO NOTHING
+      `;
+      await client.query(insertQuery, [machineId, tag.id]);
+    }
+  } catch (error) {
+    console.error(`Error inserting machine-tag relationships for machine ${machineId}:`, error.message);
+  } finally {
+    client.release();
+  }
+}
+
 // Data processing helpers
 function transformModuleData(data) {
   return {
@@ -273,6 +374,7 @@ function categorizeTagsFromMachine(tags) {
 // Main population functions
 async function populateModuleTable() {
   const allMachines = new Set();
+  const machineModuleRelationships = [];
 
   for (let i = 0; i <= 500; i++) {
     const moduleData = await fetchModuleData(i);
@@ -282,6 +384,15 @@ async function populateModuleTable() {
       await insertModule(transformedData);
 
       const relatedMachines = moduleData.related?.machines || [];
+
+      // Store machine-module relationships
+      relatedMachines.forEach((machine) => {
+        machineModuleRelationships.push({
+          machineId: machine.id,
+          moduleId: moduleData.id,
+        });
+      });
+
       extractUniqueMachines(allMachines, relatedMachines);
     }
 
@@ -296,6 +407,13 @@ async function populateModuleTable() {
     await processMachine(machine);
     await sleep(DELAY_BETWEEN_REQUESTS);
   }
+
+  // Insert machine-module relationships
+  console.log(`Inserting ${machineModuleRelationships.length} machine-module relationships...`);
+  for (const relationship of machineModuleRelationships) {
+    await insertMachineModuleRelationship(relationship.machineId, relationship.moduleId);
+  }
+  console.log("Machine-module relationships inserted successfully!");
 }
 
 async function processMachine(machine) {
@@ -341,6 +459,9 @@ async function populateTagsTables() {
       vulnerabilities.forEach((name, id) => globalVulnerabilities.set(id, name));
       languages.forEach((name, id) => globalLanguages.set(id, name));
 
+      // Insert machine-tag relationships
+      await insertMachineTagRelationships(id, tags);
+
       console.log(`Processed tags for machine ${id}`);
     }
 
@@ -359,10 +480,51 @@ async function populateTagsTables() {
   console.log("Tags population completed successfully!");
 }
 
+async function populateModuleExamRelationships() {
+  const client = await pool.connect();
+  try {
+    // Get all exams
+    const examsResult = await client.query("SELECT id FROM exams");
+    const examIds = examsResult.rows.map((row) => row.id);
+
+    console.log(`Processing module-exam relationships for ${examIds.length} exams...`);
+
+    for (const examId of examIds) {
+      const modules = await fetchExamModules(examId);
+
+      console.log(`Found ${modules.length} modules for exam ${examId}`);
+
+      for (const module of modules) {
+        await insertModuleExamRelationship(module.id, examId);
+      }
+
+      await sleep(DELAY_BETWEEN_REQUESTS);
+    }
+
+    console.log("Module-exam relationships populated successfully!");
+  } catch (error) {
+    console.error("Error populating module-exam relationships:", error.message);
+  } finally {
+    client.release();
+  }
+}
+
 async function main() {
+  console.log("Starting data scraping...");
+
+  console.log("1. Scraping modules and machines...");
   await populateModuleTable();
+
+  console.log("2. Scraping exams...");
   await populateExamTable();
+
+  console.log("3. Scraping tags tables...");
   await populateTagsTables();
+
+  console.log("4. Scraping module-exam relationships...");
+  await populateModuleExamRelationships();
+
+  console.log("All data scraping completed successfully!");
 }
 
 main();
