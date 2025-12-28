@@ -46,6 +46,13 @@ async function createDB() {
         name VARCHAR(255) NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS users (
+        id INT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        password VARCHAR(255) NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS machine_modules (
         machine_id INT NOT NULL,
         module_id INT NOT NULL,
