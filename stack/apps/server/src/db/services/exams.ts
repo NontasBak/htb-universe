@@ -51,7 +51,7 @@ class ExamService {
          FROM modules m
          JOIN module_exams me ON m.id = me.module_id
          WHERE me.exam_id = ?
-         ORDER BY m.tier, m.name`,
+         ORDER BY m.name`,
         [id]
       );
 
@@ -75,7 +75,7 @@ class ExamService {
          FROM modules m
          JOIN module_exams me ON m.id = me.module_id
          WHERE me.exam_id = ?
-         ORDER BY m.tier, m.name`,
+         ORDER BY m.name`,
         [examId]
       );
 
@@ -234,7 +234,7 @@ class ExamService {
            FROM user_modules
            WHERE user_id = ?
          )
-         ORDER BY m.tier, m.name`,
+         ORDER BY m.name`,
         [examId, userId]
       );
 

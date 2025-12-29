@@ -206,7 +206,6 @@ export interface UserSync {
 
 export interface MachineWithDetails extends Machine {
   vulnerabilities?: Vulnerability[];
-  modules?: Module[];
   languages?: string[]; // Array of language names
   areasOfInterest?: string[]; // Array of area of interest names
 }

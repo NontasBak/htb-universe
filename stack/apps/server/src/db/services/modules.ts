@@ -72,7 +72,7 @@ class ModuleService {
       const total = countRows[0]?.total || 0;
 
       // Add pagination
-      query += " ORDER BY tier, name LIMIT ? OFFSET ?";
+      query += " ORDER BY name LIMIT ? OFFSET ?";
       params.push(limit, offset);
 
       // Execute query
@@ -156,7 +156,7 @@ class ModuleService {
          FROM modules m
          JOIN module_vulnerabilities mv ON m.id = mv.module_id
          WHERE mv.vulnerability_id = ?
-         ORDER BY m.tier, m.name`,
+         ORDER BY m.name`,
         [vulnerabilityId]
       );
 
@@ -177,7 +177,7 @@ class ModuleService {
          FROM modules m
          JOIN module_exams me ON m.id = me.module_id
          WHERE me.exam_id = ?
-         ORDER BY m.tier, m.name`,
+         ORDER BY m.name`,
         [examId]
       );
 
@@ -198,7 +198,7 @@ class ModuleService {
          FROM modules m
          JOIN machine_modules mm ON m.id = mm.module_id
          WHERE mm.machine_id = ?
-         ORDER BY m.tier, m.name`,
+         ORDER BY m.name`,
         [machineId]
       );
 
@@ -219,7 +219,7 @@ class ModuleService {
          FROM modules m
          LEFT JOIN user_modules um ON m.id = um.module_id
          GROUP BY m.id
-         ORDER BY completions DESC, m.tier
+         ORDER BY completions DESC, m.name
          LIMIT ?`,
         [limit]
       );
@@ -257,21 +257,7 @@ class ModuleService {
     }
   }
 
-  /**
-   * Get distinct module tiers
-   */
-  async getTiers(): Promise<number[]> {
-    try {
-      const [rows] = await db.query<RowDataPacket[]>(
-        "SELECT DISTINCT tier FROM modules WHERE tier IS NOT NULL ORDER BY tier"
-      );
 
-      return rows.map(row => row.tier);
-    } catch (error) {
-      console.error("Error getting tiers:", error);
-      return [];
-    }
-  }
 
   /**
    * Mark module as completed for a user
@@ -375,7 +361,7 @@ class ModuleService {
            FROM user_modules
            WHERE user_id = ?
          )
-         ORDER BY m.tier, m.name`,
+         ORDER BY m.name`,
         [examId, userId]
       );
 

@@ -5,7 +5,6 @@ import type {
   MachineFilter,
   PaginatedResponse,
   Vulnerability,
-  Module,
 } from "../types";
 import type { RowDataPacket } from "mysql2";
 
@@ -62,15 +61,17 @@ class MachineService {
         params.push(...vulnerabilities, vulnerabilities.length);
       }
 
-      // Filter by modules
+      // Filter by modules (machines that have ALL specified modules - intersection logic)
       if (modules && modules.length > 0) {
         const placeholders = modules.map(() => "?").join(",");
         query += ` AND id IN (
           SELECT machine_id
           FROM machine_modules
           WHERE module_id IN (${placeholders})
+          GROUP BY machine_id
+          HAVING COUNT(DISTINCT module_id) = ?
         )`;
-        params.push(...modules);
+        params.push(...modules, modules.length);
       }
 
       // Get total count
@@ -124,15 +125,6 @@ class MachineService {
         [id]
       );
 
-      // Get modules
-      const [moduleRows] = await db.query<RowDataPacket[]>(
-        `SELECT m.*
-         FROM modules m
-         JOIN machine_modules mm ON m.id = mm.module_id
-         WHERE mm.machine_id = ?`,
-        [id]
-      );
-
       // Get languages
       const [langRows] = await db.query<RowDataPacket[]>(
         `SELECT language
@@ -152,7 +144,6 @@ class MachineService {
       return {
         ...machine,
         vulnerabilities: vulnRows as Vulnerability[],
-        modules: moduleRows as Module[],
         languages: langRows.map(row => row.language),
         areasOfInterest: aoiRows.map(row => row.area_of_interest),
       };
@@ -221,6 +212,43 @@ class MachineService {
   }
 
   /**
+   * Get machines by multiple module IDs (INTERSECT logic similar to query2.sql)
+   * Finds machines that are related to ALL specified modules
+   */
+  async getMachinesByModules(moduleIds: number[]): Promise<Machine[]> {
+    if (moduleIds.length === 0) {
+      return [];
+    }
+
+    try {
+      const placeholders = moduleIds.map(() => "?").join(",");
+
+      const query = `
+        SELECT m.*
+        FROM machines m
+        WHERE m.id IN (
+          SELECT machine_id
+          FROM machine_modules
+          WHERE module_id IN (${placeholders})
+          GROUP BY machine_id
+          HAVING COUNT(DISTINCT module_id) = ?
+        )
+        ORDER BY m.difficulty, m.name
+      `;
+
+      const [rows] = await db.query<RowDataPacket[]>(
+        query,
+        [...moduleIds, moduleIds.length]
+      );
+
+      return rows as Machine[];
+    } catch (error) {
+      console.error("Error getting machines by modules:", error);
+      throw new Error("Failed to get machines by modules");
+    }
+  }
+
+  /**
    * Get popular machines (most user completions)
    */
   async getPopularMachines(limit: number = 10): Promise<Array<{ machine: Machine; completions: number }>> {
@@ -250,26 +278,6 @@ class MachineService {
     } catch (error) {
       console.error("Error getting popular machines:", error);
       throw new Error("Failed to get popular machines");
-    }
-  }
-
-  /**
-   * Get recommended machines
-   */
-  async getRecommendedMachines(limit: number = 10): Promise<Machine[]> {
-    try {
-      const [rows] = await db.query<RowDataPacket[]>(
-        `SELECT * FROM machines
-         WHERE recommended = 1
-         ORDER BY rating DESC, difficulty
-         LIMIT ?`,
-        [limit]
-      );
-
-      return rows as Machine[];
-    } catch (error) {
-      console.error("Error getting recommended machines:", error);
-      throw new Error("Failed to get recommended machines");
     }
   }
 

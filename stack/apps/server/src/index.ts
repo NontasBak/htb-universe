@@ -117,24 +117,6 @@ app.get("/api/machines/:id", async (req, res) => {
   }
 });
 
-app.get("/api/machines/recommended", async (_req, res) => {
-  try {
-    const machines = await services.machines.getRecommendedMachines(10);
-    res.json(machines);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
-  }
-});
-
-app.get("/api/machines/popular", async (_req, res) => {
-  try {
-    const machines = await services.machines.getPopularMachines(10);
-    res.json(machines);
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
-  }
-});
-
 // ============================================================================
 // MODULES ENDPOINTS
 // ============================================================================

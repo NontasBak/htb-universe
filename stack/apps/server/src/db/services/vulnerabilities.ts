@@ -118,7 +118,7 @@ class VulnerabilityService {
          FROM modules m
          JOIN module_vulnerabilities mv ON m.id = mv.module_id
          WHERE mv.vulnerability_id = ?
-         ORDER BY m.tier, m.name`,
+         ORDER BY m.name`,
         [vulnerabilityId]
       );
 
