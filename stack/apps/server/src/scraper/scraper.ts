@@ -6,6 +6,7 @@
 import type { Pool } from "mysql2/promise";
 import { HTBHttpClient, sleep } from "./http-client.js";
 import { ScraperDatabase } from "./database.js";
+import { moduleVulnerabilityMappings } from "./module-vulnerability-mappings.js";
 import type {
   ModuleInsert,
   UnitInsert,
@@ -74,6 +75,12 @@ export class HTBScraper {
       // Step 5: Scrape module-exam relationships
       console.log("\n📋 Step 5: Scraping module-exam relationships...");
       await this.scrapeModuleExamRelationships();
+
+      // Step 6: Populate module-vulnerability relationships
+      if (this.config.populateModuleVulnerabilities !== false) {
+        console.log("\n🔗 Step 6: Populating module-vulnerability relationships...");
+        await this.populateModuleVulnerabilityRelationships();
+      }
 
       this.stats.endTime = new Date();
       this.printStats();
@@ -288,6 +295,29 @@ export class HTBScraper {
       }
     } catch (error) {
       console.error("Error scraping module-exam relationships:", error instanceof Error ? error.message : error);
+      this.stats.errorsEncountered++;
+    }
+  }
+
+  // ==========================================================================
+  // Step 6: Module-Vulnerability Relationships
+  // ==========================================================================
+
+  /**
+   * Populate module-vulnerability relationships using predefined mappings
+   */
+  private async populateModuleVulnerabilityRelationships(): Promise<void> {
+    try {
+      console.log(`Processing ${moduleVulnerabilityMappings.length} module-vulnerability mappings...`);
+
+      await this.database.insertModuleVulnerabilityRelationships(moduleVulnerabilityMappings);
+
+      console.log(`✓ Successfully populated module-vulnerability relationships`);
+    } catch (error) {
+      console.error(
+        "Error populating module-vulnerability relationships:",
+        error instanceof Error ? error.message : error
+      );
       this.stats.errorsEncountered++;
     }
   }

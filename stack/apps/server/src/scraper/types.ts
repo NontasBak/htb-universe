@@ -175,6 +175,7 @@ export interface ScraperConfig {
   htbBearer: string;
   delayBetweenRequests: number;
   maxModuleId: number;
+  populateModuleVulnerabilities?: boolean;
 }
 
 // ============================================================================

@@ -157,6 +157,7 @@ async function main() {
     htbBearer: process.env.HTB_BEARER!,
     delayBetweenRequests: 2000, // 2 seconds between requests to avoid rate limiting
     maxModuleId: 500, // Maximum module ID to scrape (adjust as needed)
+    populateModuleVulnerabilities: true, // Set to false to skip module-vulnerability mappings
   };
   logSuccess("Scraper configured");
 

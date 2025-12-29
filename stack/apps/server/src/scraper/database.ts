@@ -325,6 +325,31 @@ export class ScraperDatabase {
   }
 
   /**
+   * Insert module-vulnerability relationship
+   */
+  async insertModuleVulnerabilityRelationship(moduleId: number, vulnerabilityId: number): Promise<void> {
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.query(
+        `
+        INSERT INTO module_vulnerabilities (module_id, vulnerability_id)
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE module_id = module_id
+        `,
+        [moduleId, vulnerabilityId]
+      );
+    } catch (error) {
+      console.error(
+        `✗ Error inserting module-vulnerability relationship (${moduleId}, ${vulnerabilityId}):`,
+        error instanceof Error ? error.message : error
+      );
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  /**
    * Insert machine-area of interest relationship
    */
   async insertMachineAreaOfInterest(machineId: number, areaOfInterest: string): Promise<void> {
@@ -429,5 +454,21 @@ export class ScraperDatabase {
       await this.insertModuleExamRelationship(moduleId, examId);
     }
     console.log(`✓ Inserted ${moduleIds.length} module-exam relationships for exam ${examId}`);
+  }
+
+  /**
+   * Insert multiple module-vulnerability relationships
+   */
+  async insertModuleVulnerabilityRelationships(
+    relationships: Array<{ moduleId: number; vulnerabilityIds: number[] }>
+  ): Promise<void> {
+    let totalInserted = 0;
+    for (const rel of relationships) {
+      for (const vulnerabilityId of rel.vulnerabilityIds) {
+        await this.insertModuleVulnerabilityRelationship(rel.moduleId, vulnerabilityId);
+        totalInserted++;
+      }
+    }
+    console.log(`✓ Inserted ${totalInserted} module-vulnerability relationships`);
   }
 }
