@@ -98,7 +98,7 @@ export function ModuleDetailDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="!max-w-4xl max-h-[85vh] w-[90vw]">
+      <DialogContent className="max-w-4xl! max-h-[85vh] w-[90vw]">
         {loading ? (
           <div className="space-y-4 py-4">
             <Skeleton className="h-8 w-3/4" />
