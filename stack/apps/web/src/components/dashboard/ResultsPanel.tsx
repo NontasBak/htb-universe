@@ -32,6 +32,13 @@ interface ResultsPanelProps {
   onPageChange: (page: number) => void;
   onMachineClick: (machine: Machine) => void;
   onModuleClick: (module: Module) => void;
+  completedMachineIds?: Set<number>;
+  completedModuleIds?: Set<number>;
+  machineLikes?: Map<number, boolean | null>;
+  onToggleMachineComplete?: (machineId: number, currentlyCompleted: boolean) => void;
+  onToggleModuleComplete?: (moduleId: number, currentlyCompleted: boolean) => void;
+  onToggleMachineLike?: (machineId: number, liked: boolean) => void;
+  isUpdating?: boolean;
 }
 
 export function ResultsPanel({
@@ -45,6 +52,13 @@ export function ResultsPanel({
   onPageChange,
   onMachineClick,
   onModuleClick,
+  completedMachineIds = new Set(),
+  completedModuleIds = new Set(),
+  machineLikes = new Map(),
+  onToggleMachineComplete,
+  onToggleModuleComplete,
+  onToggleMachineLike,
+  isUpdating = false,
 }: ResultsPanelProps) {
   const totalPages = Math.ceil(totalCount / pageSize);
   const hasResults = machines.length > 0 || modules.length > 0;
@@ -167,6 +181,9 @@ export function ResultsPanel({
                 key={module.id}
                 module={module}
                 onClick={onModuleClick}
+                completed={completedModuleIds.has(module.id)}
+                onToggleComplete={onToggleModuleComplete}
+                isUpdating={isUpdating}
               />
             ))}
           </div>
@@ -195,6 +212,12 @@ export function ResultsPanel({
                 key={machine.id}
                 machine={machine}
                 onClick={onMachineClick}
+                completed={completedMachineIds.has(machine.id)}
+                liked={machineLikes.get(machine.id)}
+                onToggleComplete={onToggleMachineComplete}
+                onToggleLike={onToggleMachineLike}
+                isUpdating={isUpdating}
+                showLikeButtons={false}
               />
             ))}
           </div>

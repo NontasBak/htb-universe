@@ -319,6 +319,8 @@ class MachineService {
   async completeMachine(userId: number, machineId: number, liked?: boolean): Promise<boolean> {
     try {
       const date = Math.floor(Date.now() / 1000); // Unix timestamp
+      // Convert boolean to 1/0/null for MySQL TINYINT
+      const likesValue = liked === undefined ? null : (liked ? 1 : 0);
 
       await db.query(
         `INSERT INTO user_machines (user_id, machine_id, date, likes)
@@ -326,7 +328,7 @@ class MachineService {
          ON DUPLICATE KEY UPDATE
          date = VALUES(date),
          likes = COALESCE(VALUES(likes), likes)`,
-        [userId, machineId, date, liked !== undefined ? liked : null]
+        [userId, machineId, date, likesValue]
       );
 
       return true;
@@ -367,6 +369,11 @@ class MachineService {
         [userId]
       );
 
+      console.log(`[getUserCompletedMachines] Found ${rows.length} completed machines for user ${userId}`);
+      rows.forEach((row: any) => {
+        console.log(`[getUserCompletedMachines] Machine ID: ${row.id}, likes value: ${row.likes} (type: ${typeof row.likes})`);
+      });
+
       return rows.map(row => ({
         machine: {
           id: row.id,
@@ -378,7 +385,8 @@ class MachineService {
           image: row.image,
         } as Machine,
         date: row.date,
-        liked: row.likes,
+        // Convert TINYINT back to boolean (1 = true, 0 = false, null = null)
+        liked: row.likes === null ? null : row.likes === 1,
       }));
     } catch (error) {
       console.error("Error getting user completed machines:", error);
@@ -399,6 +407,66 @@ class MachineService {
       return rows.length > 0;
     } catch (error) {
       console.error("Error checking if user completed machine:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Get user's machine completion status with like info
+   */
+  async getUserMachineStatus(userId: number, machineId: number): Promise<{ completed: boolean; liked: boolean | null } | null> {
+    try {
+      const [rows] = await db.query<RowDataPacket[]>(
+        "SELECT likes FROM user_machines WHERE user_id = ? AND machine_id = ?",
+        [userId, machineId]
+      );
+
+      if (rows.length === 0) {
+        return { completed: false, liked: null };
+      }
+
+      return {
+        completed: true,
+        // Convert TINYINT back to boolean (1 = true, 0 = false, null = null)
+        liked: rows[0]?.likes === null ? null : rows[0]?.likes === 1,
+      };
+    } catch (error) {
+      console.error("Error getting user machine status:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Update machine like status for a user (machine must be completed first)
+   */
+  async updateMachineLikeStatus(userId: number, machineId: number, liked: boolean): Promise<boolean> {
+    try {
+      console.log(`[updateMachineLikeStatus] Attempting to update: userId=${userId}, machineId=${machineId}, liked=${liked}`);
+
+      // Convert boolean to 1/0 for MySQL TINYINT
+      const likesValue = liked ? 1 : 0;
+      console.log(`[updateMachineLikeStatus] Converting liked=${liked} to likesValue=${likesValue}`);
+
+      const [result]: any = await db.query(
+        `UPDATE user_machines
+         SET likes = ?
+         WHERE user_id = ? AND machine_id = ?`,
+        [likesValue, userId, machineId]
+      );
+
+      console.log(`[updateMachineLikeStatus] Result:`, result);
+      console.log(`[updateMachineLikeStatus] Affected rows: ${result.affectedRows}`);
+
+      // Check if any rows were actually updated
+      if (result.affectedRows === 0) {
+        console.error("[updateMachineLikeStatus] No rows updated - machine may not be completed yet");
+        return false;
+      }
+
+      console.log(`[updateMachineLikeStatus] Successfully updated likes to ${liked}`);
+      return true;
+    } catch (error) {
+      console.error("[updateMachineLikeStatus] Error updating machine like status:", error);
       return false;
     }
   }

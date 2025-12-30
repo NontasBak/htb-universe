@@ -338,6 +338,36 @@ app.get("/api/user/machines/:machineId/completed", requireAuth, async (req: Auth
   }
 });
 
+// Get machine completion status with like info
+app.get("/api/user/machines/:machineId/status", requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user || !req.params.machineId) return;
+    const machineId = parseInt(req.params.machineId);
+    const status = await services.machines.getUserMachineStatus(req.user.customUserId, machineId);
+    res.json(status);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
+  }
+});
+
+// Update machine like status
+app.put("/api/user/machines/:machineId/like", requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user || !req.params.machineId) return;
+    const machineId = parseInt(req.params.machineId);
+    const { liked } = req.body;
+
+    if (typeof liked !== 'boolean') {
+      return res.status(400).json({ error: "liked must be a boolean" });
+    }
+
+    const success = await services.machines.updateMachineLikeStatus(req.user.customUserId, machineId, liked);
+    res.json({ success });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
+  }
+});
+
 // Get current user's completed modules
 app.get("/api/user/modules", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {

@@ -14,9 +14,11 @@ import { useUrlParams } from "@/hooks/useUrlParams";
 import api from "@/lib/api/client";
 import type { Machine, Module, Exam, Vulnerability, FilterMode } from "@/types";
 import { toast } from "sonner";
+import { authClient } from "@/lib/auth-client";
 
 export default function Dashboard() {
   const { params, setPage } = useUrlParams();
+  const { data: session } = authClient.useSession();
 
   // Pre-fetched data for filters (loaded once on mount)
   const [exams, setExams] = useState<Exam[]>([]);
@@ -30,6 +32,20 @@ export default function Dashboard() {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // User completion data
+  const [completedMachineIds, setCompletedMachineIds] = useState<Set<number>>(new Set());
+  const [completedModuleIds, setCompletedModuleIds] = useState<Set<number>>(new Set());
+  const [machineLikes, setMachineLikes] = useState<Map<number, boolean | null>>(new Map());
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Global filters
+  const [globalFilters, setGlobalFilters] = useState<{
+    machineDifficulty?: string;
+    moduleDifficulty?: string;
+    os?: string;
+    hideCompleted?: boolean;
+  }>({});
 
   // Pagination
   const pageSize = 20;
@@ -72,6 +88,58 @@ export default function Dashboard() {
     preloadData();
   }, []);
 
+  // Fetch user completion data if logged in
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!session?.user) {
+        setCompletedMachineIds(new Set());
+        setCompletedModuleIds(new Set());
+        setMachineLikes(new Map());
+        return;
+      }
+
+      try {
+        const [userMachines, userModules] = await Promise.all([
+          api.getUserMachines(),
+          api.getUserModules(),
+        ]);
+
+        // Process machines
+        const machineIds = new Set<number>();
+        const likes = new Map<number, boolean | null>();
+
+        if (Array.isArray(userMachines)) {
+          userMachines.forEach((item: any) => {
+            const machineId = item.machine?.id || item.machine_id;
+            if (machineId) {
+              machineIds.add(machineId);
+              likes.set(machineId, item.liked !== undefined ? item.liked : item.likes);
+            }
+          });
+        }
+
+        // Process modules
+        const moduleIds = new Set<number>();
+        if (Array.isArray(userModules)) {
+          userModules.forEach((item: any) => {
+            const moduleId = item.module?.id || item.module_id;
+            if (moduleId) {
+              moduleIds.add(moduleId);
+            }
+          });
+        }
+
+        setCompletedMachineIds(machineIds);
+        setCompletedModuleIds(moduleIds);
+        setMachineLikes(likes);
+      } catch (err) {
+        console.error("Failed to fetch user completion data:", err);
+      }
+    };
+
+    fetchUserData();
+  }, [session]);
+
   // Handle filter application
   const handleFilterApply = async (mode: FilterMode, filters: any) => {
     setCurrentFilters({ mode, filters });
@@ -87,27 +155,46 @@ export default function Dashboard() {
   };
 
   // Fetch results based on filter mode
-  const fetchResults = async (mode: FilterMode, filters: any, page: number) => {
+  const fetchResults = async (
+    mode: FilterMode,
+    filters: any,
+    page: number,
+    currentGlobalFilters = globalFilters
+  ) => {
     setIsLoading(true);
     setError(null);
     setMachines([]);
     setModules([]);
 
     try {
-      const offset = (page - 1) * pageSize;
-
       switch (mode) {
         case "exam": {
           // Fetch modules for the selected exam
           const response = await api.getExamModules(filters.examId, {
-            limit: pageSize,
-            offset,
+            limit: 1000, // Fetch more to allow client-side filtering
+            offset: 0,
           });
 
-          const modulesList = response.data || response;
-          setModules(modulesList);
+          let modulesList = response.data || response;
+
+          // Apply difficulty filter
+          if (currentGlobalFilters.moduleDifficulty) {
+            modulesList = modulesList.filter((m: Module) => m.difficulty === currentGlobalFilters.moduleDifficulty);
+          }
+
+          // Apply hide completed filter
+          if (currentGlobalFilters.hideCompleted) {
+            modulesList = modulesList.filter((m: Module) => !completedModuleIds.has(m.id));
+          }
+
+          // Paginate after filtering
+          const offset = (page - 1) * pageSize;
+          const totalFiltered = modulesList.length;
+          const paginatedModules = modulesList.slice(offset, offset + pageSize);
+
+          setModules(paginatedModules);
           setMachines([]);
-          setTotalCount(response.total || modulesList.length);
+          setTotalCount(totalFiltered);
           break;
         }
 
@@ -115,14 +202,27 @@ export default function Dashboard() {
           // Fetch machines for the selected module
           const response = await api.getMachines({
             modules: [filters.moduleId],
-            limit: pageSize,
-            offset,
+            difficulty: currentGlobalFilters.machineDifficulty,
+            os: currentGlobalFilters.os,
+            limit: 1000, // Fetch more to allow client-side filtering
+            offset: 0,
           });
 
-          const machinesList = response.data || response;
-          setMachines(machinesList);
+          let machinesList = response.data || response;
+
+          // Apply hide completed filter
+          if (currentGlobalFilters.hideCompleted) {
+            machinesList = machinesList.filter((m: Machine) => !completedMachineIds.has(m.id));
+          }
+
+          // Paginate after filtering
+          const offset = (page - 1) * pageSize;
+          const totalFiltered = machinesList.length;
+          const paginatedMachines = machinesList.slice(offset, offset + pageSize);
+
+          setMachines(paginatedMachines);
           setModules([]);
-          setTotalCount(response.total || machinesList.length);
+          setTotalCount(totalFiltered);
           break;
         }
 
@@ -131,25 +231,41 @@ export default function Dashboard() {
           const [modulesResponse, machinesResponse] = await Promise.all([
             api.getModules({
               vulnerabilities: filters.vulnerabilityIds,
-              limit: pageSize,
-              offset,
+              difficulty: currentGlobalFilters.moduleDifficulty,
+              limit: 1000, // Fetch more to allow client-side filtering
+              offset: 0,
             }),
             api.getMachines({
               vulnerabilities: filters.vulnerabilityIds,
-              limit: pageSize,
-              offset,
+              difficulty: currentGlobalFilters.machineDifficulty,
+              os: currentGlobalFilters.os,
+              limit: 1000, // Fetch more to allow client-side filtering
+              offset: 0,
             }),
           ]);
 
-          const modulesList = modulesResponse.data || modulesResponse;
-          const machinesList = machinesResponse.data || machinesResponse;
+          let modulesList = modulesResponse.data || modulesResponse;
+          let machinesList = machinesResponse.data || machinesResponse;
 
-          setModules(modulesList);
-          setMachines(machinesList);
-          setTotalCount(
-            (modulesResponse.total || modulesList.length) +
-            (machinesResponse.total || machinesList.length)
-          );
+          // Apply hide completed filter
+          if (currentGlobalFilters.hideCompleted) {
+            modulesList = modulesList.filter((m: Module) => !completedModuleIds.has(m.id));
+            machinesList = machinesList.filter((m: Machine) => !completedMachineIds.has(m.id));
+          }
+
+          // Combine results
+          const allResults = [...modulesList, ...machinesList];
+          const totalFiltered = allResults.length;
+
+          // Paginate combined results
+          const offset = (page - 1) * pageSize;
+          const paginatedResults = allResults.slice(offset, offset + pageSize);
+          const paginatedModules = paginatedResults.filter((item: any) => 'description' in item) as Module[];
+          const paginatedMachines = paginatedResults.filter((item: any) => 'synopsis' in item) as Machine[];
+
+          setModules(paginatedModules);
+          setMachines(paginatedMachines);
+          setTotalCount(totalFiltered);
           break;
         }
 
@@ -157,14 +273,27 @@ export default function Dashboard() {
           // Fetch machines that cover all selected modules (intersection)
           const response = await api.getMachines({
             modules: filters.moduleIds,
-            limit: pageSize,
-            offset,
+            difficulty: currentGlobalFilters.machineDifficulty,
+            os: currentGlobalFilters.os,
+            limit: 1000, // Fetch more to allow client-side filtering
+            offset: 0,
           });
 
-          const machinesList = response.data || response;
-          setMachines(machinesList);
+          let machinesList = response.data || response;
+
+          // Apply hide completed filter
+          if (currentGlobalFilters.hideCompleted) {
+            machinesList = machinesList.filter((m: Machine) => !completedMachineIds.has(m.id));
+          }
+
+          // Paginate after filtering
+          const offset = (page - 1) * pageSize;
+          const totalFiltered = machinesList.length;
+          const paginatedMachines = machinesList.slice(offset, offset + pageSize);
+
+          setMachines(paginatedMachines);
           setModules([]);
-          setTotalCount(response.total || machinesList.length);
+          setTotalCount(totalFiltered);
           break;
         }
 
@@ -192,6 +321,168 @@ export default function Dashboard() {
     setIsModuleDialogOpen(true);
   };
 
+  // Handle completion updates from dialogs
+  const handleMachineCompletionFromDialog = (machineId: number, completed: boolean, liked?: boolean | null) => {
+    if (completed) {
+      setCompletedMachineIds((prev) => new Set(prev).add(machineId));
+      if (liked !== undefined) {
+        setMachineLikes((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(machineId, liked);
+          return newMap;
+        });
+      }
+    } else {
+      setCompletedMachineIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(machineId);
+        return newSet;
+      });
+      setMachineLikes((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(machineId);
+        return newMap;
+      });
+    }
+    // Re-apply filters if hide completed is active
+    if (globalFilters.hideCompleted && currentFilters) {
+      fetchResults(currentFilters.mode, currentFilters.filters, currentPage);
+    }
+  };
+
+  const handleModuleCompletionFromDialog = (moduleId: number, completed: boolean) => {
+    if (completed) {
+      setCompletedModuleIds((prev) => new Set(prev).add(moduleId));
+    } else {
+      setCompletedModuleIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(moduleId);
+        return newSet;
+      });
+    }
+    // Re-fetch results to update the list
+    if (currentFilters) {
+      fetchResults(currentFilters.mode, currentFilters.filters, currentPage);
+    }
+  };
+
+  const handleMachineLikeFromDialog = (machineId: number, liked: boolean) => {
+    setMachineLikes((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(machineId, liked);
+      return newMap;
+    });
+  };
+
+  // Handle machine completion toggle
+  const handleToggleMachineComplete = async (machineId: number, currentlyCompleted: boolean) => {
+    if (!session?.user) {
+      toast.error("Please log in to mark machines as completed");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      if (currentlyCompleted) {
+        await api.uncompleteMachine(machineId);
+        setCompletedMachineIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(machineId);
+          return newSet;
+        });
+        setMachineLikes((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(machineId);
+          return newMap;
+        });
+        toast.success("Machine unmarked as completed");
+      } else {
+        await api.completeMachine(machineId);
+        setCompletedMachineIds((prev) => new Set(prev).add(machineId));
+        toast.success("Machine marked as completed");
+      }
+      // Re-fetch results to update the list
+      if (currentFilters) {
+        fetchResults(currentFilters.mode, currentFilters.filters, currentPage);
+      }
+    } catch (error) {
+      toast.error("Failed to update machine completion");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Handle machine like toggle
+  const handleToggleMachineLike = async (machineId: number, liked: boolean) => {
+    if (!session?.user) {
+      toast.error("Please log in to like machines");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      await api.updateMachineLike(machineId, liked);
+      setMachineLikes((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(machineId, liked);
+        return newMap;
+      });
+      toast.success(liked ? "Machine liked!" : "Machine disliked");
+    } catch (error) {
+      toast.error("Failed to update machine like status");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Handle module completion toggle
+  const handleToggleModuleComplete = async (moduleId: number, currentlyCompleted: boolean) => {
+    if (!session?.user) {
+      toast.error("Please log in to mark modules as completed");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      if (currentlyCompleted) {
+        await api.uncompleteModule(moduleId);
+        setCompletedModuleIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(moduleId);
+          return newSet;
+        });
+        toast.success("Module unmarked as completed");
+      } else {
+        await api.completeModule(moduleId);
+        setCompletedModuleIds((prev) => new Set(prev).add(moduleId));
+        toast.success("Module marked as completed");
+      }
+      // Re-fetch results to update the list
+      if (currentFilters) {
+        fetchResults(currentFilters.mode, currentFilters.filters, currentPage);
+      }
+    } catch (error) {
+      toast.error("Failed to update module completion");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Handle global filters change
+  const handleGlobalFiltersChange = (filters: {
+    machineDifficulty?: string;
+    moduleDifficulty?: string;
+    os?: string;
+    hideCompleted?: boolean;
+  }) => {
+    setGlobalFilters(filters);
+    // Re-fetch results with new filters (pass filters directly to avoid stale state)
+    if (currentFilters) {
+      fetchResults(currentFilters.mode, currentFilters.filters, 1, filters);
+      setPage(1);
+    }
+  };
+
   return (
     <>
       <DashboardLayout
@@ -203,6 +494,8 @@ export default function Dashboard() {
             exams={exams}
             modules={allModules}
             vulnerabilities={vulnerabilities}
+            globalFilters={globalFilters}
+            onGlobalFiltersChange={handleGlobalFiltersChange}
           />
         }
         resultsPanel={
@@ -217,6 +510,13 @@ export default function Dashboard() {
             onPageChange={handlePageChange}
             onMachineClick={handleMachineClick}
             onModuleClick={handleModuleClick}
+            completedMachineIds={completedMachineIds}
+            completedModuleIds={completedModuleIds}
+            machineLikes={machineLikes}
+            onToggleMachineComplete={session?.user ? handleToggleMachineComplete : undefined}
+            onToggleModuleComplete={session?.user ? handleToggleModuleComplete : undefined}
+            onToggleMachineLike={session?.user ? handleToggleMachineLike : undefined}
+            isUpdating={isUpdating}
           />
         }
       />
@@ -226,12 +526,15 @@ export default function Dashboard() {
         machineId={selectedMachineId}
         isOpen={isMachineDialogOpen}
         onClose={() => setIsMachineDialogOpen(false)}
+        onCompletionChange={handleMachineCompletionFromDialog}
+        onLikeChange={handleMachineLikeFromDialog}
       />
 
       <ModuleDetailDialog
         moduleId={selectedModuleId}
         isOpen={isModuleDialogOpen}
         onClose={() => setIsModuleDialogOpen(false)}
+        onCompletionChange={handleModuleCompletionFromDialog}
       />
     </>
   );

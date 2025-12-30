@@ -22,6 +22,11 @@ export interface Machine {
   image: string | null;
 }
 
+export interface MachineWithStatus extends Machine {
+  completed?: boolean;
+  liked?: boolean | null;
+}
+
 export interface Module {
   id: number;
   name: string | null;
@@ -29,6 +34,10 @@ export interface Module {
   difficulty: ModuleDifficulty | null;
   url: string | null;
   image: string | null;
+}
+
+export interface ModuleWithStatus extends Module {
+  completed?: boolean;
 }
 
 export interface Unit {
@@ -115,6 +124,7 @@ export interface MachineFilterParams {
   search?: string;
   limit?: number;
   offset?: number;
+  hideCompleted?: boolean;
 }
 
 export interface ModuleFilterParams {
@@ -124,6 +134,7 @@ export interface ModuleFilterParams {
   search?: string;
   limit?: number;
   offset?: number;
+  hideCompleted?: boolean;
 }
 
 // ============================================================================
@@ -179,4 +190,14 @@ export interface DashboardUrlParams {
   vulnerabilities?: string;
   modules?: string;
   page?: string;
+  machineDifficulty?: string;
+  moduleDifficulty?: string;
+  os?: string;
+  hideCompleted?: string;
+}
+
+export interface UserCompletionData {
+  completedMachineIds: Set<number>;
+  completedModuleIds: Set<number>;
+  machineLikes: Map<number, boolean | null>;
 }

@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Monitor, CheckCircle2, Circle } from "lucide-react";
+import { ExternalLink, Monitor, CheckCircle2, Circle, ThumbsUp, ThumbsDown } from "lucide-react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import api from "@/lib/api/client";
@@ -27,18 +27,23 @@ interface MachineDetailDialogProps {
   machineId: number | null;
   isOpen: boolean;
   onClose: () => void;
+  onCompletionChange?: (machineId: number, completed: boolean, liked?: boolean | null) => void;
+  onLikeChange?: (machineId: number, liked: boolean) => void;
 }
 
 export function MachineDetailDialog({
   machineId,
   isOpen,
   onClose,
+  onCompletionChange,
+  onLikeChange,
 }: MachineDetailDialogProps) {
   const { data: session } = authClient.useSession();
   const [machine, setMachine] = useState<MachineWithDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [liked, setLiked] = useState<boolean | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
@@ -70,8 +75,9 @@ export function MachineDetailDialog({
     if (!machineId || !session) return;
 
     try {
-      const { completed } = await api.isMachineCompleted(machineId);
-      setIsCompleted(completed);
+      const status = await api.getMachineStatus(machineId);
+      setIsCompleted(status.completed);
+      setLiked(status.liked);
     } catch (err) {
       // Silently fail - user might not be authenticated
       console.error("Failed to check completion status:", err);
@@ -86,14 +92,39 @@ export function MachineDetailDialog({
       if (isCompleted) {
         await api.uncompleteMachine(machineId);
         setIsCompleted(false);
+        setLiked(null);
         toast.success("Machine unmarked as completed");
+        if (onCompletionChange) {
+          onCompletionChange(machineId, false);
+        }
       } else {
         await api.completeMachine(machineId);
         setIsCompleted(true);
         toast.success("Machine marked as completed");
+        if (onCompletionChange) {
+          onCompletionChange(machineId, true);
+        }
       }
     } catch (err) {
       toast.error("Failed to update completion status");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const toggleLike = async (newLiked: boolean) => {
+    if (!machineId || !session || !isCompleted) return;
+
+    setIsUpdating(true);
+    try {
+      await api.updateMachineLike(machineId, newLiked);
+      setLiked(newLiked);
+      toast.success(newLiked ? "Machine liked!" : "Machine disliked");
+      if (onLikeChange) {
+        onLikeChange(machineId, newLiked);
+      }
+    } catch (err) {
+      toast.error("Failed to update like status");
     } finally {
       setIsUpdating(false);
     }
@@ -132,9 +163,9 @@ export function MachineDetailDialog({
         ) : machine ? (
           <ScrollArea className="max-h-[75vh] pr-4">
             <DialogHeader>
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 pr-8">
                 <Monitor className="h-8 w-8 shrink-0 text-muted-foreground" />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <DialogTitle className="text-2xl">
                     {machine.name || "Unnamed Machine"}
                   </DialogTitle>
@@ -149,29 +180,54 @@ export function MachineDetailDialog({
                     )}
                   </div>
                 </div>
-                {session && (
-                  <Button
-                    variant={isCompleted ? "default" : "outline"}
-                    size="sm"
-                    onClick={toggleCompletion}
-                    disabled={isUpdating}
-                    className="shrink-0"
-                  >
-                    {isCompleted ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Completed
-                      </>
-                    ) : (
-                      <>
-                        <Circle className="h-4 w-4 mr-2" />
-                        Mark Complete
-                      </>
-                    )}
-                  </Button>
-                )}
               </div>
             </DialogHeader>
+
+            {/* Action Buttons */}
+            {session && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                <Button
+                  variant={isCompleted ? "default" : "outline"}
+                  size="sm"
+                  onClick={toggleCompletion}
+                  disabled={isUpdating}
+                >
+                  {isCompleted ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Completed
+                    </>
+                  ) : (
+                    <>
+                      <Circle className="h-4 w-4 mr-2" />
+                      Mark Complete
+                    </>
+                  )}
+                </Button>
+                {isCompleted && (
+                  <>
+                    <Button
+                      variant={liked === true ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleLike(true)}
+                      disabled={isUpdating}
+                    >
+                      <ThumbsUp className="h-4 w-4 mr-2" />
+                      Like
+                    </Button>
+                    <Button
+                      variant={liked === false ? "destructive" : "outline"}
+                      size="sm"
+                      onClick={() => toggleLike(false)}
+                      disabled={isUpdating}
+                    >
+                      <ThumbsDown className="h-4 w-4 mr-2" />
+                      Dislike
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="space-y-6 mt-6">
               {/* Synopsis */}

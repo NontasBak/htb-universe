@@ -27,12 +27,14 @@ interface ModuleDetailDialogProps {
   moduleId: number | null;
   isOpen: boolean;
   onClose: () => void;
+  onCompletionChange?: (moduleId: number, completed: boolean) => void;
 }
 
 export function ModuleDetailDialog({
   moduleId,
   isOpen,
   onClose,
+  onCompletionChange,
 }: ModuleDetailDialogProps) {
   const { data: session } = authClient.useSession();
   const [module, setModule] = useState<ModuleWithDetails | null>(null);
@@ -92,10 +94,16 @@ export function ModuleDetailDialog({
         await api.uncompleteModule(moduleId);
         setIsCompleted(false);
         toast.success("Module unmarked as completed");
+        if (onCompletionChange) {
+          onCompletionChange(moduleId, false);
+        }
       } else {
         await api.completeModule(moduleId);
         setIsCompleted(true);
         toast.success("Module marked as completed");
+        if (onCompletionChange) {
+          onCompletionChange(moduleId, true);
+        }
       }
     } catch (err) {
       toast.error("Failed to update completion status");
@@ -155,9 +163,9 @@ export function ModuleDetailDialog({
         ) : module ? (
           <ScrollArea className="max-h-[75vh] pr-4">
             <DialogHeader>
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 pr-8">
                 <BookOpen className="h-8 w-8 shrink-0 text-muted-foreground" />
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <DialogTitle className="text-2xl">
                     {module.name || "Unnamed Module"}
                   </DialogTitle>
@@ -169,29 +177,32 @@ export function ModuleDetailDialog({
                     )}
                   </div>
                 </div>
-                {session && (
-                  <Button
-                    variant={isCompleted ? "default" : "outline"}
-                    size="sm"
-                    onClick={toggleCompletion}
-                    disabled={isUpdating}
-                    className="shrink-0"
-                  >
-                    {isCompleted ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Completed
-                      </>
-                    ) : (
-                      <>
-                        <Circle className="h-4 w-4 mr-2" />
-                        Mark Complete
-                      </>
-                    )}
-                  </Button>
-                )}
               </div>
             </DialogHeader>
+
+            {/* Action Button */}
+            {session && (
+              <div className="mt-4">
+                <Button
+                  variant={isCompleted ? "default" : "outline"}
+                  size="sm"
+                  onClick={toggleCompletion}
+                  disabled={isUpdating}
+                >
+                  {isCompleted ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Completed
+                    </>
+                  ) : (
+                    <>
+                      <Circle className="h-4 w-4 mr-2" />
+                      Mark Complete
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
 
             <div className="space-y-6 mt-6">
               {/* Description */}

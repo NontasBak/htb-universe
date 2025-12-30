@@ -24,8 +24,10 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import Loader from "@/components/loader";
-import { Search, CheckCircle2, Award, BookOpen, Server, Monitor } from "lucide-react";
+import { Search, CheckCircle2, Award, BookOpen, Server, Monitor, Info, ThumbsUp, ThumbsDown } from "lucide-react";
 import type { Machine, Module, Exam } from "@/types";
+import { MachineDetailDialog } from "@/components/dialogs/MachineDetailDialog";
+import { ModuleDetailDialog } from "@/components/dialogs/ModuleDetailDialog";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -42,6 +44,7 @@ export default function Profile() {
   const [completedMachineIds, setCompletedMachineIds] = useState<Set<number>>(new Set());
   const [completedModuleIds, setCompletedModuleIds] = useState<Set<number>>(new Set());
   const [completedExamIds, setCompletedExamIds] = useState<Set<number>>(new Set());
+  const [machineLikes, setMachineLikes] = useState<Map<number, boolean | null>>(new Map());
 
   // Search state
   const [machineSearch, setMachineSearch] = useState("");
@@ -56,6 +59,12 @@ export default function Profile() {
   // Loading state
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Dialog state
+  const [selectedMachineId, setSelectedMachineId] = useState<number | null>(null);
+  const [isMachineDialogOpen, setIsMachineDialogOpen] = useState(false);
+  const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
+  const [isModuleDialogOpen, setIsModuleDialogOpen] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -95,10 +104,23 @@ export default function Profile() {
       setAllModules(modulesData.data || modulesData);
       setAllExams(examsData);
 
-      // Build completion sets
-      setCompletedMachineIds(
-        new Set(userMachines.map((item: any) => item.machine.id))
-      );
+      // Build completion sets and likes map
+      const machineIds = new Set<number>();
+      const likes = new Map<number, boolean | null>();
+
+      if (Array.isArray(userMachines)) {
+        userMachines.forEach((item: any) => {
+          const machineId = item.machine?.id || item.machine_id;
+          if (machineId) {
+            machineIds.add(machineId);
+            likes.set(machineId, item.liked !== undefined ? item.liked : item.likes);
+          }
+        });
+      }
+
+      setCompletedMachineIds(machineIds);
+      setMachineLikes(likes);
+
       setCompletedModuleIds(
         new Set(userModules.map((item: any) => item.module.id))
       );
@@ -124,6 +146,11 @@ export default function Profile() {
           newSet.delete(machineId);
           return newSet;
         });
+        setMachineLikes((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(machineId);
+          return newMap;
+        });
         toast.success("Machine unmarked as completed");
       } else {
         await api.completeMachine(machineId);
@@ -134,6 +161,83 @@ export default function Profile() {
       toast.error("Failed to update machine completion");
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  // Toggle machine like
+  const toggleMachineLike = async (machineId: number, liked: boolean) => {
+    setIsUpdating(true);
+    try {
+      await api.updateMachineLike(machineId, liked);
+      setMachineLikes((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(machineId, liked);
+        return newMap;
+      });
+      toast.success(liked ? "Machine liked!" : "Machine disliked");
+    } catch (error) {
+      toast.error("Failed to update machine like status");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Handle machine completion updates from dialog
+  const handleMachineCompletionFromDialog = (machineId: number, completed: boolean, liked?: boolean | null) => {
+    if (completed) {
+      setCompletedMachineIds((prev) => new Set(prev).add(machineId));
+      if (liked !== undefined) {
+        setMachineLikes((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(machineId, liked);
+          return newMap;
+        });
+      }
+    } else {
+      setCompletedMachineIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(machineId);
+        return newSet;
+      });
+      setMachineLikes((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(machineId);
+        return newMap;
+      });
+    }
+  };
+
+  // Handle machine like updates from dialog
+  const handleMachineLikeFromDialog = (machineId: number, liked: boolean) => {
+    setMachineLikes((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(machineId, liked);
+      return newMap;
+    });
+  };
+
+  // Handle machine detail view
+  const handleViewMachineDetails = (machineId: number) => {
+    setSelectedMachineId(machineId);
+    setIsMachineDialogOpen(true);
+  };
+
+  // Handle module detail view
+  const handleViewModuleDetails = (moduleId: number) => {
+    setSelectedModuleId(moduleId);
+    setIsModuleDialogOpen(true);
+  };
+
+  // Handle module completion updates from dialog
+  const handleModuleCompletionFromDialog = (moduleId: number, completed: boolean) => {
+    if (completed) {
+      setCompletedModuleIds((prev) => new Set(prev).add(moduleId));
+    } else {
+      setCompletedModuleIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(moduleId);
+        return newSet;
+      });
     }
   };
 
@@ -346,10 +450,11 @@ export default function Profile() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {paginatedMachines.map((machine) => {
                   const isCompleted = completedMachineIds.has(machine.id);
+                  const liked = machineLikes.get(machine.id);
                   return (
                     <Card
                       key={machine.id}
-                      className={`transition-all ${isCompleted ? "border-green-500 border-2" : ""}`}
+                      className={`transition-all flex flex-col ${isCompleted ? "border-green-500 border-2" : ""}`}
                     >
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between gap-2">
@@ -374,7 +479,7 @@ export default function Profile() {
                           <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
                         </div>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="space-y-3 mt-auto">
                         <div className="flex flex-wrap gap-2">
                           {machine.difficulty && (
                             <Badge className={getDifficultyColor(machine.difficulty)}>
@@ -390,6 +495,41 @@ export default function Profile() {
                               Completed
                             </Badge>
                           )}
+                        </div>
+
+                        {/* Action buttons row: Details, Like, Dislike */}
+                        <div className="flex gap-2 pt-2 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewMachineDetails(machine.id)}
+                            className="flex-1"
+                          >
+                            <Info className="h-4 w-4 mr-1" />
+                            Details
+                          </Button>
+                          <Button
+                            variant={liked === true ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => toggleMachineLike(machine.id, true)}
+                            disabled={isUpdating || !isCompleted}
+                            className="flex-1"
+                            title={!isCompleted ? "Complete the machine first to like it" : ""}
+                          >
+                            <ThumbsUp className="h-4 w-4 mr-1" />
+                            Like
+                          </Button>
+                          <Button
+                            variant={liked === false ? "destructive" : "outline"}
+                            size="sm"
+                            onClick={() => toggleMachineLike(machine.id, false)}
+                            disabled={isUpdating || !isCompleted}
+                            className="flex-1"
+                            title={!isCompleted ? "Complete the machine first to dislike it" : ""}
+                          >
+                            <ThumbsDown className="h-4 w-4 mr-1" />
+                            Dislike
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -472,7 +612,7 @@ export default function Profile() {
                   return (
                     <Card
                       key={module.id}
-                      className={`transition-all ${isCompleted ? "border-green-500 border-2" : ""}`}
+                      className={`transition-all flex flex-col ${isCompleted ? "border-green-500 border-2" : ""}`}
                     >
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between gap-2">
@@ -497,7 +637,7 @@ export default function Profile() {
                           <BookOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
                         </div>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="space-y-3 mt-auto">
                         <div className="flex flex-wrap gap-2">
                           {module.difficulty && (
                             <Badge className={getDifficultyColor(module.difficulty)}>
@@ -510,6 +650,19 @@ export default function Profile() {
                               Completed
                             </Badge>
                           )}
+                        </div>
+
+                        {/* View details button */}
+                        <div className="pt-2 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewModuleDetails(module.id)}
+                            className="w-full"
+                          >
+                            <Info className="h-4 w-4 mr-1" />
+                            View Details
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -592,7 +745,7 @@ export default function Profile() {
                   return (
                     <Card
                       key={exam.id}
-                      className={`transition-all ${isCompleted ? "border-green-500 border-2" : ""}`}
+                      className={`transition-all flex flex-col ${isCompleted ? "border-green-500 border-2" : ""}`}
                     >
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between gap-2">
@@ -612,7 +765,7 @@ export default function Profile() {
                           <Award className="h-4 w-4 shrink-0 text-muted-foreground" />
                         </div>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="mt-auto">
                         <div className="flex flex-wrap gap-2">
                           {isCompleted && (
                             <Badge variant="default" className="bg-green-600">
@@ -674,6 +827,23 @@ export default function Profile() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Machine Detail Dialog */}
+      <MachineDetailDialog
+        machineId={selectedMachineId}
+        isOpen={isMachineDialogOpen}
+        onClose={() => setIsMachineDialogOpen(false)}
+        onCompletionChange={handleMachineCompletionFromDialog}
+        onLikeChange={handleMachineLikeFromDialog}
+      />
+
+      {/* Module Detail Dialog */}
+      <ModuleDetailDialog
+        moduleId={selectedModuleId}
+        isOpen={isModuleDialogOpen}
+        onClose={() => setIsModuleDialogOpen(false)}
+        onCompletionChange={handleModuleCompletionFromDialog}
+      />
     </div>
   );
 }
