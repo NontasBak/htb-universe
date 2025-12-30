@@ -23,6 +23,7 @@ import {
   examService,
   vulnerabilityService,
   statisticsService,
+  adminService,
 } from "./services";
 
 export const services: {
@@ -32,6 +33,7 @@ export const services: {
   exams: typeof examService;
   vulnerabilities: typeof vulnerabilityService;
   statistics: typeof statisticsService;
+  adminService: typeof adminService;
 } = {
   userSync: userSyncService,
   machines: machineService,
@@ -39,6 +41,7 @@ export const services: {
   exams: examService,
   vulnerabilities: vulnerabilityService,
   statistics: statisticsService,
+  adminService: adminService,
 };
 
 const defaultExport: {

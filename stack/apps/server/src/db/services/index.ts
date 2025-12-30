@@ -10,3 +10,4 @@ export { moduleService } from "./modules";
 export { examService } from "./exams";
 export { vulnerabilityService } from "./vulnerabilities";
 export { statisticsService } from "./statistics";
+export { adminService } from "./admin";

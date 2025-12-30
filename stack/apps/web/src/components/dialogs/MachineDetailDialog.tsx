@@ -17,7 +17,9 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Monitor } from "lucide-react";
+import { ExternalLink, Monitor, CheckCircle2, Circle } from "lucide-react";
+import { toast } from "sonner";
+import { authClient } from "@/lib/auth-client";
 import api from "@/lib/api/client";
 import type { MachineWithDetails } from "@/types";
 
@@ -32,15 +34,21 @@ export function MachineDetailDialog({
   isOpen,
   onClose,
 }: MachineDetailDialogProps) {
+  const { data: session } = authClient.useSession();
   const [machine, setMachine] = useState<MachineWithDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     if (machineId && isOpen) {
       fetchMachineDetails();
+      if (session) {
+        checkCompletionStatus();
+      }
     }
-  }, [machineId, isOpen]);
+  }, [machineId, isOpen, session]);
 
   const fetchMachineDetails = async () => {
     if (!machineId) return;
@@ -55,6 +63,39 @@ export function MachineDetailDialog({
       setError(err instanceof Error ? err.message : "Failed to load machine details");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkCompletionStatus = async () => {
+    if (!machineId || !session) return;
+
+    try {
+      const { completed } = await api.isMachineCompleted(machineId);
+      setIsCompleted(completed);
+    } catch (err) {
+      // Silently fail - user might not be authenticated
+      console.error("Failed to check completion status:", err);
+    }
+  };
+
+  const toggleCompletion = async () => {
+    if (!machineId || !session) return;
+
+    setIsUpdating(true);
+    try {
+      if (isCompleted) {
+        await api.uncompleteMachine(machineId);
+        setIsCompleted(false);
+        toast.success("Machine unmarked as completed");
+      } else {
+        await api.completeMachine(machineId);
+        setIsCompleted(true);
+        toast.success("Machine marked as completed");
+      }
+    } catch (err) {
+      toast.error("Failed to update completion status");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -108,6 +149,27 @@ export function MachineDetailDialog({
                     )}
                   </div>
                 </div>
+                {session && (
+                  <Button
+                    variant={isCompleted ? "default" : "outline"}
+                    size="sm"
+                    onClick={toggleCompletion}
+                    disabled={isUpdating}
+                    className="shrink-0"
+                  >
+                    {isCompleted ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Completed
+                      </>
+                    ) : (
+                      <>
+                        <Circle className="h-4 w-4 mr-2" />
+                        Mark Complete
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </DialogHeader>
 

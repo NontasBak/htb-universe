@@ -17,7 +17,9 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, BookOpen, FileText, MonitorPlay, GraduationCap } from "lucide-react";
+import { ExternalLink, BookOpen, FileText, MonitorPlay, GraduationCap, CheckCircle2, Circle } from "lucide-react";
+import { toast } from "sonner";
+import { authClient } from "@/lib/auth-client";
 import api from "@/lib/api/client";
 import type { ModuleWithDetails, Unit } from "@/types";
 
@@ -32,16 +34,22 @@ export function ModuleDetailDialog({
   isOpen,
   onClose,
 }: ModuleDetailDialogProps) {
+  const { data: session } = authClient.useSession();
   const [module, setModule] = useState<ModuleWithDetails | null>(null);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     if (moduleId && isOpen) {
       fetchModuleDetails();
+      if (session) {
+        checkCompletionStatus();
+      }
     }
-  }, [moduleId, isOpen]);
+  }, [moduleId, isOpen, session]);
 
   const fetchModuleDetails = async () => {
     if (!moduleId) return;
@@ -60,6 +68,39 @@ export function ModuleDetailDialog({
       setError(err instanceof Error ? err.message : "Failed to load module details");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkCompletionStatus = async () => {
+    if (!moduleId || !session) return;
+
+    try {
+      const { completed } = await api.isModuleCompleted(moduleId);
+      setIsCompleted(completed);
+    } catch (err) {
+      // Silently fail - user might not be authenticated
+      console.error("Failed to check completion status:", err);
+    }
+  };
+
+  const toggleCompletion = async () => {
+    if (!moduleId || !session) return;
+
+    setIsUpdating(true);
+    try {
+      if (isCompleted) {
+        await api.uncompleteModule(moduleId);
+        setIsCompleted(false);
+        toast.success("Module unmarked as completed");
+      } else {
+        await api.completeModule(moduleId);
+        setIsCompleted(true);
+        toast.success("Module marked as completed");
+      }
+    } catch (err) {
+      toast.error("Failed to update completion status");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -128,6 +169,27 @@ export function ModuleDetailDialog({
                     )}
                   </div>
                 </div>
+                {session && (
+                  <Button
+                    variant={isCompleted ? "default" : "outline"}
+                    size="sm"
+                    onClick={toggleCompletion}
+                    disabled={isUpdating}
+                    className="shrink-0"
+                  >
+                    {isCompleted ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Completed
+                      </>
+                    ) : (
+                      <>
+                        <Circle className="h-4 w-4 mr-2" />
+                        Mark Complete
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </DialogHeader>
 

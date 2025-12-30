@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
+import { User } from "lucide-react";
 
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
@@ -40,6 +41,13 @@ export default function UserMenu() {
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem>{session.user.email}</DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => navigate("/profile")}
+          >
+            <User className="h-4 w-4 mr-2" />
+            Profile
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
             onClick={() => {
