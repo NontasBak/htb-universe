@@ -1,6 +1,7 @@
 import { db } from "../connection";
-import type { CustomUser, UserRole, UserSync } from "../types";
+import type { CustomUser, UserRole, UserSyncWithDetails } from "../types";
 import type { RowDataPacket } from "mysql2";
+import crypto from "crypto";
 
 /**
  * User Sync Service
@@ -9,9 +10,13 @@ import type { RowDataPacket } from "mysql2";
  * - better-auth's `user` table (UUID-based, managed by better-auth)
  * - Custom `users` table (integer ID-based, legacy HTB system)
  *
- * The sync ensures that when a user registers/updates via better-auth,
- * the custom users table is also updated to maintain compatibility
- * with existing user_machines, user_modules, and user_exams tables.
+ * The user_sync table is a SIMPLE LINK TABLE with only:
+ * - auth_user_id (references better-auth user.id)
+ * - custom_user_id (references users.id)
+ * - timestamps
+ *
+ * All user data (username, email, role) lives in the `users` table.
+ * Passwords are managed by better-auth in the `account` table.
  */
 class UserSyncService {
   /**
@@ -20,6 +25,26 @@ class UserSyncService {
    */
   async createCustomUser(authUserId: string, username: string, email: string, role: UserRole = "User"): Promise<number> {
     try {
+      // Check if user already exists with this email (prevent duplicates)
+      const [existingUsers] = await db.query<RowDataPacket[]>(
+        "SELECT id FROM users WHERE email = ?",
+        [email]
+      );
+
+      if (existingUsers.length > 0) {
+        const existingId = existingUsers[0]!.id;
+        console.log(`User with email ${email} already exists with ID ${existingId}`);
+
+        // Check if sync mapping exists
+        const existingSync = await this.getCustomUserId(authUserId);
+        if (!existingSync) {
+          // Create the sync mapping for existing user
+          await this.storeSyncMapping(authUserId, existingId);
+        }
+
+        return existingId;
+      }
+
       // Generate a new ID for the custom users table
       // We'll use a safe approach: get max ID and increment
       const [maxIdRows] = await db.query<RowDataPacket[]>(
@@ -27,14 +52,18 @@ class UserSyncService {
       );
       const nextId = maxIdRows[0]?.next_id || 1;
 
+      // Generate a random placeholder password hash (not used for authentication)
+      // Real authentication happens through better-auth
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+
       // Insert into custom users table
       await db.query(
-        `INSERT INTO users (id, username, email, role) VALUES (?, ?, ?, ?)`,
-        [nextId, username, email, role]
+        `INSERT INTO users (id, username, email, password, role) VALUES (?, ?, ?, ?, ?)`,
+        [nextId, username, email, randomPassword, role]
       );
 
-      // Store the mapping in a sync table (we'll create this)
-      await this.storeSyncMapping(authUserId, nextId, username, email, role);
+      // Store the simple mapping in sync table
+      await this.storeSyncMapping(authUserId, nextId);
 
       return nextId;
     } catch (error) {
@@ -86,14 +115,22 @@ class UserSyncService {
   }
 
   /**
-   * Get full user sync info
+   * Get full user sync info with details from users table
    */
-  async getUserSync(authUserId: string): Promise<UserSync | null> {
+  async getUserSync(authUserId: string): Promise<UserSyncWithDetails | null> {
     try {
       const [rows] = await db.query<RowDataPacket[]>(
-        `SELECT auth_user_id, custom_user_id, username, email, role, created_at, updated_at
-         FROM user_sync
-         WHERE auth_user_id = ?`,
+        `SELECT
+          us.auth_user_id,
+          us.custom_user_id,
+          us.created_at,
+          us.updated_at,
+          u.username,
+          u.email,
+          u.role
+         FROM user_sync us
+         JOIN users u ON us.custom_user_id = u.id
+         WHERE us.auth_user_id = ?`,
         [authUserId]
       );
 
@@ -104,11 +141,11 @@ class UserSyncService {
       return {
         auth_user_id: rows[0]!.auth_user_id,
         custom_user_id: rows[0]!.custom_user_id,
+        created_at: rows[0]!.created_at,
+        updated_at: rows[0]!.updated_at,
         username: rows[0]!.username,
         email: rows[0]!.email,
         role: rows[0]!.role,
-        created_at: rows[0]!.created_at,
-        updated_at: rows[0]!.updated_at,
       };
     } catch (error) {
       console.error("Error getting user sync:", error);
@@ -118,6 +155,7 @@ class UserSyncService {
 
   /**
    * Update custom user when better-auth user is updated
+   * This only updates the users table, NOT the sync table
    */
   async updateCustomUser(authUserId: string, updates: { username?: string; email?: string }): Promise<boolean> {
     try {
@@ -150,28 +188,6 @@ class UserSyncService {
         `UPDATE users SET ${updateFields.join(", ")} WHERE id = ?`,
         updateValues
       );
-
-      // Update sync table
-      const syncUpdateFields: string[] = [];
-      const syncUpdateValues: any[] = [];
-
-      if (updates.username !== undefined) {
-        syncUpdateFields.push("username = ?");
-        syncUpdateValues.push(updates.username);
-      }
-
-      if (updates.email !== undefined) {
-        syncUpdateFields.push("email = ?");
-        syncUpdateValues.push(updates.email);
-      }
-
-      if (syncUpdateFields.length > 0) {
-        syncUpdateValues.push(authUserId);
-        await db.query(
-          `UPDATE user_sync SET ${syncUpdateFields.join(", ")} WHERE auth_user_id = ?`,
-          syncUpdateValues
-        );
-      }
 
       return true;
     } catch (error) {
@@ -208,7 +224,8 @@ class UserSyncService {
   }
 
   /**
-   * Check if user sync table exists, create if not
+   * Check if user_sync table exists, create if not
+   * The table is now SIMPLIFIED - only a link table with no redundant data
    */
   async ensureSyncTableExists(): Promise<void> {
     try {
@@ -216,15 +233,11 @@ class UserSyncService {
         CREATE TABLE IF NOT EXISTS user_sync (
           auth_user_id VARCHAR(36) NOT NULL PRIMARY KEY,
           custom_user_id INT NOT NULL UNIQUE,
-          username VARCHAR(30) NOT NULL,
-          email VARCHAR(255) NOT NULL,
-          role ENUM('User', 'Admin') NOT NULL DEFAULT 'User',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           FOREIGN KEY (auth_user_id) REFERENCES user(id) ON DELETE CASCADE,
           FOREIGN KEY (custom_user_id) REFERENCES users(id) ON DELETE CASCADE,
-          INDEX idx_custom_user_id (custom_user_id),
-          INDEX idx_email (email)
+          INDEX idx_custom_user_id (custom_user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
       `);
     } catch (error) {
@@ -235,25 +248,21 @@ class UserSyncService {
 
   /**
    * Store mapping between auth user and custom user
+   * This is now MUCH simpler - only stores IDs, no redundant data
    */
   private async storeSyncMapping(
     authUserId: string,
-    customUserId: number,
-    username: string,
-    email: string,
-    role: UserRole
+    customUserId: number
   ): Promise<void> {
     try {
       await this.ensureSyncTableExists();
 
       await db.query(
-        `INSERT INTO user_sync (auth_user_id, custom_user_id, username, email, role)
-         VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO user_sync (auth_user_id, custom_user_id)
+         VALUES (?, ?)
          ON DUPLICATE KEY UPDATE
-         username = VALUES(username),
-         email = VALUES(email),
-         role = VALUES(role)`,
-        [authUserId, customUserId, username, email, role]
+         custom_user_id = VALUES(custom_user_id)`,
+        [authUserId, customUserId]
       );
     } catch (error) {
       console.error("Error storing sync mapping:", error);
@@ -262,7 +271,7 @@ class UserSyncService {
   }
 
   /**
-   * Update user role
+   * Update user role in the users table
    */
   async updateUserRole(authUserId: string, role: UserRole): Promise<boolean> {
     try {
@@ -274,11 +283,6 @@ class UserSyncService {
       await db.query(
         `UPDATE users SET role = ? WHERE id = ?`,
         [role, customUserId]
-      );
-
-      await db.query(
-        `UPDATE user_sync SET role = ? WHERE auth_user_id = ?`,
-        [role, authUserId]
       );
 
       return true;
@@ -314,14 +318,28 @@ class UserSyncService {
    */
   async isUsernameAvailable(username: string, excludeAuthUserId?: string): Promise<boolean> {
     try {
-      const [rows] = await db.query<RowDataPacket[]>(
-        excludeAuthUserId
-          ? `SELECT COUNT(*) as count FROM user_sync WHERE username = ? AND auth_user_id != ?`
-          : `SELECT COUNT(*) as count FROM user_sync WHERE username = ?`,
-        excludeAuthUserId ? [username, excludeAuthUserId] : [username]
-      );
-
-      return rows[0]?.count === 0;
+      if (excludeAuthUserId) {
+        // Check if username exists for users OTHER than the one being excluded
+        const [rows] = await db.query<RowDataPacket[]>(
+          `SELECT COUNT(*) as count
+           FROM users u
+           WHERE u.username = ?
+           AND u.id NOT IN (
+             SELECT custom_user_id
+             FROM user_sync
+             WHERE auth_user_id = ?
+           )`,
+          [username, excludeAuthUserId]
+        );
+        return rows[0]?.count === 0;
+      } else {
+        // Simple check if username exists
+        const [rows] = await db.query<RowDataPacket[]>(
+          `SELECT COUNT(*) as count FROM users WHERE username = ?`,
+          [username]
+        );
+        return rows[0]?.count === 0;
+      }
     } catch (error) {
       console.error("Error checking username availability:", error);
       return false;
@@ -330,13 +348,22 @@ class UserSyncService {
 
   /**
    * Get all users with sync info (admin only)
+   * JOINs user_sync with users table to get all details
    */
-  async getAllUsersWithSync(limit: number = 50, offset: number = 0): Promise<UserSync[]> {
+  async getAllUsersWithSync(limit: number = 50, offset: number = 0): Promise<UserSyncWithDetails[]> {
     try {
       const [rows] = await db.query<RowDataPacket[]>(
-        `SELECT auth_user_id, custom_user_id, username, email, role, created_at, updated_at
-         FROM user_sync
-         ORDER BY custom_user_id
+        `SELECT
+          us.auth_user_id,
+          us.custom_user_id,
+          us.created_at,
+          us.updated_at,
+          u.username,
+          u.email,
+          u.role
+         FROM user_sync us
+         JOIN users u ON us.custom_user_id = u.id
+         ORDER BY us.custom_user_id
          LIMIT ? OFFSET ?`,
         [limit, offset]
       );
@@ -344,11 +371,11 @@ class UserSyncService {
       return rows.map(row => ({
         auth_user_id: row.auth_user_id,
         custom_user_id: row.custom_user_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
         username: row.username,
         email: row.email,
         role: row.role,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
       }));
     } catch (error) {
       console.error("Error getting all users with sync:", error);

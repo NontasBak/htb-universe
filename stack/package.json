@@ -14,12 +14,15 @@
     "dev:web": "pnpm --filter web dev",
     "dev:server": "pnpm --filter server dev",
     "db:reset": "tsx ../scripts/reset-database.ts",
-    "db:reset-auth": "tsx ../scripts/reset-auth-tables.ts"
+    "db:reset-auth": "tsx ../scripts/reset-auth-tables.ts",
+    "seed:mock": "tsx scripts/seed-mock-data.ts",
+    "verify:mock": "tsx scripts/verify-mock-data.ts"
   },
   "packageManager": "pnpm@10.10.0",
   "dependencies": {
     "@my-better-t-app/env": "workspace:*",
     "dotenv": "catalog:",
+    "mysql2": "^3.16.0",
     "zod": "catalog:"
   },
   "devDependencies": {

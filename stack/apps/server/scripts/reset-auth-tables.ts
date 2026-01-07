@@ -228,15 +228,11 @@ async function resetAuthTables(config: {
       CREATE TABLE IF NOT EXISTS user_sync (
         auth_user_id VARCHAR(36) NOT NULL PRIMARY KEY,
         custom_user_id INT NOT NULL UNIQUE,
-        username VARCHAR(30) NOT NULL,
-        email VARCHAR(255) NOT NULL,
-        role ENUM('User', 'Admin') NOT NULL DEFAULT 'User',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (auth_user_id) REFERENCES user(id) ON DELETE CASCADE,
         FOREIGN KEY (custom_user_id) REFERENCES users(id) ON DELETE CASCADE,
-        INDEX idx_custom_user_id (custom_user_id),
-        INDEX idx_email (email)
+        INDEX idx_custom_user_id (custom_user_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
     `);
     logSuccess("User sync bridge table created");

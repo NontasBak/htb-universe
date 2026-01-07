@@ -4,7 +4,7 @@ import type {
   MachineDifficulty,
   MachineOS,
   ModuleDifficulty,
-  UserSync,
+  UserSyncWithDetails,
   UnitType,
 } from "../types";
 
@@ -19,7 +19,7 @@ import type {
 // USER MANAGEMENT
 // ============================================================================
 
-export interface AdminUserListItem extends UserSync {
+export interface AdminUserListItem extends UserSyncWithDetails {
   totalMachines: number;
   totalModules: number;
   totalExams: number;
@@ -35,15 +35,16 @@ class AdminService {
         `SELECT
           us.auth_user_id,
           us.custom_user_id,
-          us.username,
-          us.email,
-          us.role,
           us.created_at,
           us.updated_at,
+          u.username,
+          u.email,
+          u.role,
           COUNT(DISTINCT um.machine_id) as totalMachines,
           COUNT(DISTINCT umod.module_id) as totalModules,
           COUNT(DISTINCT ue.exam_id) as totalExams
          FROM user_sync us
+         JOIN users u ON us.custom_user_id = u.id
          LEFT JOIN user_machines um ON us.custom_user_id = um.user_id
          LEFT JOIN user_modules umod ON us.custom_user_id = umod.user_id
          LEFT JOIN user_exams ue ON us.custom_user_id = ue.user_id
@@ -56,11 +57,11 @@ class AdminService {
       return rows.map((row) => ({
         auth_user_id: row.auth_user_id,
         custom_user_id: row.custom_user_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
         username: row.username,
         email: row.email,
         role: row.role,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
         totalMachines: Number(row.totalMachines || 0),
         totalModules: Number(row.totalModules || 0),
         totalExams: Number(row.totalExams || 0),
@@ -148,15 +149,16 @@ class AdminService {
         `SELECT
           us.auth_user_id,
           us.custom_user_id,
-          us.username,
-          us.email,
-          us.role,
           us.created_at,
           us.updated_at,
+          u.username,
+          u.email,
+          u.role,
           COUNT(DISTINCT um.machine_id) as totalMachines,
           COUNT(DISTINCT umod.module_id) as totalModules,
           COUNT(DISTINCT ue.exam_id) as totalExams
          FROM user_sync us
+         JOIN users u ON us.custom_user_id = u.id
          LEFT JOIN user_machines um ON us.custom_user_id = um.user_id
          LEFT JOIN user_modules umod ON us.custom_user_id = umod.user_id
          LEFT JOIN user_exams ue ON us.custom_user_id = ue.user_id
@@ -173,11 +175,11 @@ class AdminService {
       return {
         auth_user_id: row.auth_user_id,
         custom_user_id: row.custom_user_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
         username: row.username,
         email: row.email,
         role: row.role,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
         totalMachines: Number(row.totalMachines || 0),
         totalModules: Number(row.totalModules || 0),
         totalExams: Number(row.totalExams || 0),
@@ -763,9 +765,10 @@ class AdminService {
       const [userStats] = await db.query<RowDataPacket[]>(
         `SELECT
           COUNT(*) as total,
-          SUM(CASE WHEN role = 'Admin' THEN 1 ELSE 0 END) as admins,
-          SUM(CASE WHEN role = 'User' THEN 1 ELSE 0 END) as users
-         FROM user_sync`
+          SUM(CASE WHEN u.role = 'Admin' THEN 1 ELSE 0 END) as admins,
+          SUM(CASE WHEN u.role = 'User' THEN 1 ELSE 0 END) as users
+         FROM user_sync us
+         JOIN users u ON us.custom_user_id = u.id`
       );
 
       const [machineCount] = await db.query<RowDataPacket[]>(

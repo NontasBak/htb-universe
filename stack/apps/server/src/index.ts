@@ -5,7 +5,6 @@ import cors from "cors";
 import express from "express";
 import { db, services } from "./db";
 import { requireAuth, requireAdmin, type AuthenticatedRequest } from "./middleware/auth";
-import { initializeAdminUser } from "./services/admin-init";
 
 const app = express();
 
@@ -19,9 +18,6 @@ async function initializeDatabase() {
     // Ensure user_sync table exists
     await services.userSync.ensureSyncTableExists();
     console.log("✓ User sync table initialized");
-
-    // Initialize admin user from environment variables
-    await initializeAdminUser();
   } catch (error) {
     console.error("✗ Database initialization failed:", error);
     throw error;

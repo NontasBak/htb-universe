@@ -193,11 +193,18 @@ export interface UserExam {
 export interface UserSync {
   auth_user_id: string; // UUID from better-auth user table
   custom_user_id: number; // Integer ID from custom users table
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Extended UserSync with user details from the users table
+ * Used when JOINing user_sync with users table
+ */
+export interface UserSyncWithDetails extends UserSync {
   username: string;
   email: string;
   role: UserRole;
-  created_at: Date;
-  updated_at: Date;
 }
 
 // ============================================================================

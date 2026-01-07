@@ -52,12 +52,19 @@ export async function requireAuth(
       // User exists in better-auth but not in our custom users table
       // This can happen for existing users or if sync failed during registration
       const username = authUser.name ?? authUser.email.split("@")[0];
-      await services.userSync.createCustomUser(
-        authUser.id,
-        username,
-        authUser.email,
-        "User"
-      );
+
+      try {
+        await services.userSync.createCustomUser(
+          authUser.id,
+          username,
+          authUser.email,
+          "User"
+        );
+      } catch (error) {
+        // If creation fails (e.g., duplicate), try to get the sync again
+        // This handles race conditions where multiple requests create simultaneously
+        console.log("User creation failed, attempting to retrieve existing user:", error);
+      }
 
       userSync = await services.userSync.getUserSync(authUser.id);
 
@@ -112,12 +119,19 @@ export async function optionalAuth(
 
       if (!userSync) {
         const username = authUser.name ?? authUser.email.split("@")[0];
-        await services.userSync.createCustomUser(
-          authUser.id,
-          username,
-          authUser.email,
-          "User"
-        );
+
+        try {
+          await services.userSync.createCustomUser(
+            authUser.id,
+            username,
+            authUser.email,
+            "User"
+          );
+        } catch (error) {
+          // Ignore creation errors in optional auth
+          console.log("Optional auth: User creation failed, attempting to retrieve existing user:", error);
+        }
+
         userSync = await services.userSync.getUserSync(authUser.id);
       }
 
