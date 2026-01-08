@@ -20,7 +20,8 @@ async function initializeDatabase() {
     console.log("✓ User sync table initialized");
   } catch (error) {
     console.error("✗ Database initialization failed:", error);
-    throw error;
+    console.warn("✗ Database initialization failed, please run migrations:");
+    // Do not throw error, allow server to start so we can access it to run migrations
   }
 }
 
