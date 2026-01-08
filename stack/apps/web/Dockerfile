@@ -6,7 +6,7 @@ RUN corepack enable
 FROM base AS builder
 WORKDIR /app
 COPY . .
-RUN ls -la packages
+WORKDIR /app/stack
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # Build the application
@@ -21,10 +21,10 @@ FROM base AS runner
 WORKDIR /app
 
 # Copy the deployed package (dependencies + package.json)
-COPY --from=builder /app/pruned .
+COPY --from=builder /app/stack/pruned .
 
 # Copy the build output manually
-COPY --from=builder /app/apps/web/build ./build
+COPY --from=builder /app/stack/apps/web/build ./build
 
 ENV NODE_ENV=production
 ENV PORT=3000

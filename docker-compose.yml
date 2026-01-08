@@ -20,8 +20,8 @@ services:
 
   server:
     build:
-      context: ./stack
-      dockerfile: apps/server/Dockerfile
+      context: .
+      dockerfile: stack/apps/server/Dockerfile
     container_name: htb_universe_server
     environment:
       NODE_ENV: production
@@ -44,8 +44,8 @@ services:
 
   web:
     build:
-      context: ./stack
-      dockerfile: apps/web/Dockerfile
+      context: .
+      dockerfile: stack/apps/web/Dockerfile
       args:
         # This must be the PUBLIC URL of your backend (e.g. https://api.yourdomain.com)
         VITE_SERVER_URL: ${VITE_SERVER_URL}
