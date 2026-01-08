@@ -6,6 +6,7 @@ RUN corepack enable
 FROM base AS builder
 WORKDIR /app
 COPY . .
+RUN ls -la packages
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # Build the application

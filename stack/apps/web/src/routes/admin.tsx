@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { api } from "../lib/api/client";
+import { api } from "@/lib/api/client";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -239,7 +239,7 @@ function UserManagement({ currentUserId }: { currentUserId: number }) {
   const handleCreateUser = async (userData: any) => {
     try {
       // Create via better-auth signup, then promote to admin if needed
-      const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/auth/sign-up/email`, {
+      const response = await fetch(`${import.meta.env.VITE_SERVER_URL || "http://localhost:3000/api"}/auth/sign-up/email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
