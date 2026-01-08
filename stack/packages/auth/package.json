@@ -1,5 +1,6 @@
 {
   "name": "@my-better-t-app/auth",
+  "version": "0.0.1",
   "type": "module",
   "exports": {
     ".": {
