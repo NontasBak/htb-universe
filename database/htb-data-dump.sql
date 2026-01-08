@@ -610,3 +610,49 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2026-01-08 13:48:46
+
+--
+-- Custom Views
+--
+
+DROP VIEW IF EXISTS `MACHINE_FULL_VULN_DETAILS`;
+CREATE VIEW `MACHINE_FULL_VULN_DETAILS` AS
+SELECT 
+    m.name AS machine_name,
+    m.os,
+    m.difficulty,
+    v.name AS vulnerability_name
+FROM 
+    machines m
+JOIN 
+    machine_vulnerabilities mv ON m.id = mv.machine_id
+JOIN 
+    vulnerabilities v ON mv.vulnerability_id = v.id;
+
+DROP VIEW IF EXISTS `EXAM_GUIDE`;
+CREATE VIEW `EXAM_GUIDE` AS
+    SELECT 
+        e.name AS exam_name,
+        m.name AS module_name,
+        m.difficulty AS module_difficulty
+    FROM
+        exams e
+            JOIN
+        module_exams me ON e.id = me.exam_id
+            JOIN
+        modules m ON me.module_id = m.id;
+
+DROP VIEW IF EXISTS `EXAM_PREP_MACHINES`;
+CREATE VIEW `EXAM_PREP_MACHINES` AS
+    SELECT 
+        e.name AS exam_name,
+        mac.name AS machine_name,
+        mac.difficulty AS machine_difficulty
+    FROM
+        exams e
+            JOIN
+        module_exams me ON e.id = me.exam_id
+            JOIN
+        machine_modules mm ON me.module_id = mm.module_id
+            JOIN
+        machines mac ON mm.machine_id = mac.id;

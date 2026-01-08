@@ -23,6 +23,7 @@ COPY --from=builder /app/apps/server/dist ./dist
 # Copy scripts folder if needed (though running them requires tsx which is devDep)
 COPY --from=builder /app/apps/server/scripts ./scripts
 COPY --from=builder /app/apps/server/src ./src
+COPY --from=builder /app/database ./database
 
 # Install tsx globally to run scripts
 RUN pnpm add -g tsx

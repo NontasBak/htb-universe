@@ -3,7 +3,10 @@
  * Provides typed HTTP methods for interacting with the backend API
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+let serverUrl = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
+if (serverUrl.endsWith("/")) serverUrl = serverUrl.slice(0, -1);
+if (!serverUrl.endsWith("/api")) serverUrl = `${serverUrl}/api`;
+const API_BASE_URL = serverUrl;
 
 export class ApiError extends Error {
   constructor(

@@ -239,7 +239,15 @@ function UserManagement({ currentUserId }: { currentUserId: number }) {
   const handleCreateUser = async (userData: any) => {
     try {
       // Create via better-auth signup, then promote to admin if needed
-      const response = await fetch(`${import.meta.env.VITE_SERVER_URL || "http://localhost:3000/api"}/auth/sign-up/email`, {
+      let baseUrl = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
+      // Remove trailing slash if present
+      baseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+      // Append /api if not already present
+      if (!baseUrl.endsWith("/api")) {
+        baseUrl = `${baseUrl}/api`;
+      }
+
+      const response = await fetch(`${baseUrl}/auth/sign-up/email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

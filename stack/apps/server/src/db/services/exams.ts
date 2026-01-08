@@ -49,14 +49,14 @@ class ExamService {
       // Get required modules using EXAM_GUIDE view
       const [moduleRows] = await db.query<RowDataPacket[]>(
         `SELECT
-           module_id as id,
-           module_name as name,
-           module_description as description,
-           module_difficulty as difficulty,
-           module_tier as tier
-         FROM EXAM_GUIDE
-         WHERE exam_id = ?
-         ORDER BY module_name`,
+           m.id,
+           m.name,
+           m.description,
+           m.difficulty
+         FROM modules m
+         JOIN module_exams me ON m.id = me.module_id
+         WHERE me.exam_id = ?
+         ORDER BY m.name`,
         [id]
       );
 
@@ -78,14 +78,14 @@ class ExamService {
       // Use EXAM_GUIDE view for simplified query
       const [rows] = await db.query<RowDataPacket[]>(
         `SELECT
-           module_id as id,
-           module_name as name,
-           module_description as description,
-           module_difficulty as difficulty,
-           module_tier as tier
-         FROM EXAM_GUIDE
-         WHERE exam_id = ?
-         ORDER BY module_name`,
+           m.id,
+           m.name,
+           m.description,
+           m.difficulty
+         FROM modules m
+         JOIN module_exams me ON m.id = me.module_id
+         WHERE me.exam_id = ?
+         ORDER BY m.name`,
         [examId]
       );
 
@@ -108,17 +108,20 @@ class ExamService {
       // Query the EXAM_PREP_MACHINES view
       const [rows] = await db.query<RowDataPacket[]>(
         `SELECT
-           machine_id,
-           machine_name,
-           machine_difficulty,
-           machine_os,
-           machine_synopsis,
-           machine_rating,
-           module_id,
-           module_name
-         FROM EXAM_PREP_MACHINES
-         WHERE exam_id = ?
-         ORDER BY machine_name, module_name`,
+           mac.id as machine_id,
+           mac.name as machine_name,
+           mac.difficulty as machine_difficulty,
+           mac.os as machine_os,
+           mac.synopsis as machine_synopsis,
+           mac.rating as machine_rating,
+           m.id as module_id,
+           m.name as module_name
+         FROM machines mac
+         JOIN machine_modules mm ON mac.id = mm.machine_id
+         JOIN modules m ON mm.module_id = m.id
+         JOIN module_exams me ON m.id = me.module_id
+         WHERE me.exam_id = ?
+         ORDER BY mac.name, m.name`,
         [examId]
       );
 
@@ -285,13 +288,13 @@ class ExamService {
       // Get all required modules using EXAM_GUIDE view
       const [allModulesRows] = await db.query<RowDataPacket[]>(
         `SELECT
-           module_id as id,
-           module_name as name,
-           module_description as description,
-           module_difficulty as difficulty,
-           module_tier as tier
-         FROM EXAM_GUIDE
-         WHERE exam_id = ?`,
+           m.id,
+           m.name,
+           m.description,
+           m.difficulty
+         FROM modules m
+         JOIN module_exams me ON m.id = me.module_id
+         WHERE me.exam_id = ?`,
         [examId]
       );
 
@@ -300,33 +303,33 @@ class ExamService {
       // Get completed modules using EXAM_GUIDE view
       const [completedRows] = await db.query<RowDataPacket[]>(
         `SELECT
-           eg.module_id as id,
-           eg.module_name as name,
-           eg.module_description as description,
-           eg.module_difficulty as difficulty,
-           eg.module_tier as tier
-         FROM EXAM_GUIDE eg
-         JOIN user_modules um ON eg.module_id = um.module_id
-         WHERE eg.exam_id = ? AND um.user_id = ?`,
+           m.id,
+           m.name,
+           m.description,
+           m.difficulty
+         FROM modules m
+         JOIN module_exams me ON m.id = me.module_id
+         JOIN user_modules um ON m.id = um.module_id
+         WHERE me.exam_id = ? AND um.user_id = ?`,
         [examId, userId]
       );
 
       // Get incomplete modules using EXAM_GUIDE view
       const [incompleteRows] = await db.query<RowDataPacket[]>(
         `SELECT
-           module_id as id,
-           module_name as name,
-           module_description as description,
-           module_difficulty as difficulty,
-           module_tier as tier
-         FROM EXAM_GUIDE
-         WHERE exam_id = ?
-         AND module_id NOT IN (
+           m.id,
+           m.name,
+           m.description,
+           m.difficulty
+         FROM modules m
+         JOIN module_exams me ON m.id = me.module_id
+         WHERE me.exam_id = ?
+         AND m.id NOT IN (
            SELECT module_id
            FROM user_modules
            WHERE user_id = ?
          )
-         ORDER BY module_name`,
+         ORDER BY m.name`,
         [examId, userId]
       );
 
