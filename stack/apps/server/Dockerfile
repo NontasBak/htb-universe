@@ -20,8 +20,6 @@ COPY --from=builder /app/pruned .
 # Copy the built artifacts manually
 COPY --from=builder /app/apps/server/dist ./dist
 
-RUN ls -R dist
-
 # Copy scripts folder if needed (though running them requires tsx which is devDep)
 COPY --from=builder /app/apps/server/scripts ./scripts
 COPY --from=builder /app/apps/server/src ./src
@@ -33,4 +31,4 @@ ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/index.mjs"]
