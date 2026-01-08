@@ -3,18 +3,18 @@ RUN corepack enable && corepack prepare pnpm@10.10.0 --activate
 
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/web/package.json ./apps/web/
-COPY apps/server/package.json ./apps/server/
-COPY packages/auth/package.json ./packages/auth/
-COPY packages/config/package.json ./packages/config/
-COPY packages/env/package.json ./packages/env/
+COPY stack/package.json stack/pnpm-lock.yaml stack/pnpm-workspace.yaml ./
+COPY stack/apps/web/package.json ./apps/web/
+COPY stack/apps/server/package.json ./apps/server/
+COPY stack/packages/auth/package.json ./packages/auth/
+COPY stack/packages/config/package.json ./packages/config/
+COPY stack/packages/env/package.json ./packages/env/
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY stack/ .
 RUN pnpm --filter web build
 
 FROM nginx:alpine
