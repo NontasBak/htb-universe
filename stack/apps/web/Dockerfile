@@ -14,7 +14,7 @@ ENV VITE_SERVER_URL=$VITE_SERVER_URL
 RUN pnpm --filter web build
 
 # Create a pruned version for production (only prod dependencies)
-RUN pnpm --filter web --prod deploy pruned
+RUN pnpm --filter web --prod deploy pruned --legacy
 
 FROM base AS runner
 WORKDIR /app
