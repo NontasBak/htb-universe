@@ -1,0 +1,68 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: htb_universe_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-htb_universe}
+      MYSQL_USER: ${DB_USER:-htb_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-htb_password}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - htb_network
+
+  server:
+    build:
+      context: ./stack
+      dockerfile: apps/server/Dockerfile
+    container_name: htb_universe_server
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Database connection
+      DB_HOST: db
+      DB_USER: ${DB_USER:-htb_user}
+      DB_PASSWORD: ${DB_PASSWORD:-htb_password}
+      DB_NAME: ${DB_NAME:-htb_universe}
+      # Auth & Config
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    networks:
+      - htb_network
+
+  web:
+    build:
+      context: ./stack
+      dockerfile: apps/web/Dockerfile
+      args:
+        # This must be the PUBLIC URL of your backend (e.g. https://api.yourdomain.com)
+        VITE_SERVER_URL: ${VITE_SERVER_URL}
+    container_name: htb_universe_web
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+    depends_on:
+      - server
+    restart: always
+    networks:
+      - htb_network
+
+volumes:
+  db_data:
+
+networks:
+  htb_network:
+    driver: bridge
