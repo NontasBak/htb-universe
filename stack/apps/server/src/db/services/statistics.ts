@@ -215,21 +215,21 @@ class StatisticsService {
     progressPercentage: number;
   }>> {
     try {
+      // Use EXAM_GUIDE view for simplified query
       const [rows] = await db.query<RowDataPacket[]>(
         `SELECT
-          e.id as exam_id,
-          e.name as exam_name,
-          COUNT(DISTINCT me.module_id) as total_modules,
+          eg.exam_id,
+          eg.exam_name,
+          COUNT(DISTINCT eg.module_id) as total_modules,
           COUNT(DISTINCT um.module_id) as completed_modules,
           ROUND(
-            (COUNT(DISTINCT um.module_id) / COUNT(DISTINCT me.module_id)) * 100,
+            (COUNT(DISTINCT um.module_id) / COUNT(DISTINCT eg.module_id)) * 100,
             2
           ) as progress_percentage
-         FROM exams e
-         JOIN module_exams me ON e.id = me.exam_id
-         LEFT JOIN user_modules um ON me.module_id = um.module_id AND um.user_id = ?
-         GROUP BY e.id, e.name
-         ORDER BY progress_percentage DESC, e.id`,
+         FROM EXAM_GUIDE eg
+         LEFT JOIN user_modules um ON eg.module_id = um.module_id AND um.user_id = ?
+         GROUP BY eg.exam_id, eg.exam_name
+         ORDER BY progress_percentage DESC, eg.exam_id`,
         [userId]
       );
 

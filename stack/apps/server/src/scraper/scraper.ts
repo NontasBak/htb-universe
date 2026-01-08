@@ -198,7 +198,7 @@ export class HTBScraper {
       const examInserts: ExamInsert[] = exams.map((exam) => ({
         id: exam.id,
         name: exam.name,
-        logo: exam.logo || null,
+        logo: exam.exam_badge || null,
       }));
 
       await this.database.insertExams(examInserts);

@@ -168,16 +168,20 @@ class ModuleService {
   }
 
   /**
-   * Get modules by exam ID
+   * Get modules by exam ID using EXAM_GUIDE view
    */
   async getModulesByExam(examId: number): Promise<Module[]> {
     try {
       const [rows] = await db.query<RowDataPacket[]>(
-        `SELECT m.*
-         FROM modules m
-         JOIN module_exams me ON m.id = me.module_id
-         WHERE me.exam_id = ?
-         ORDER BY m.name`,
+        `SELECT
+           module_id as id,
+           module_name as name,
+           module_description as description,
+           module_difficulty as difficulty,
+           module_tier as tier
+         FROM EXAM_GUIDE
+         WHERE exam_id = ?
+         ORDER BY module_name`,
         [examId]
       );
 

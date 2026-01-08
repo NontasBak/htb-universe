@@ -3,6 +3,7 @@ import type {
   Exam,
   ExamWithDetails,
   Module,
+  Machine,
 } from "../types";
 import type { RowDataPacket } from "mysql2";
 
@@ -45,13 +46,17 @@ class ExamService {
 
       const exam = examRows[0] as Exam;
 
-      // Get required modules
+      // Get required modules using EXAM_GUIDE view
       const [moduleRows] = await db.query<RowDataPacket[]>(
-        `SELECT m.*
-         FROM modules m
-         JOIN module_exams me ON m.id = me.module_id
-         WHERE me.exam_id = ?
-         ORDER BY m.name`,
+        `SELECT
+           module_id as id,
+           module_name as name,
+           module_description as description,
+           module_difficulty as difficulty,
+           module_tier as tier
+         FROM EXAM_GUIDE
+         WHERE exam_id = ?
+         ORDER BY module_name`,
         [id]
       );
 
@@ -70,12 +75,17 @@ class ExamService {
    */
   async getExamModules(examId: number): Promise<Module[]> {
     try {
+      // Use EXAM_GUIDE view for simplified query
       const [rows] = await db.query<RowDataPacket[]>(
-        `SELECT m.*
-         FROM modules m
-         JOIN module_exams me ON m.id = me.module_id
-         WHERE me.exam_id = ?
-         ORDER BY m.name`,
+        `SELECT
+           module_id as id,
+           module_name as name,
+           module_description as description,
+           module_difficulty as difficulty,
+           module_tier as tier
+         FROM EXAM_GUIDE
+         WHERE exam_id = ?
+         ORDER BY module_name`,
         [examId]
       );
 
@@ -83,6 +93,76 @@ class ExamService {
     } catch (error) {
       console.error("Error getting exam modules:", error);
       throw new Error("Failed to get exam modules");
+    }
+  }
+
+  /**
+   * Get machines for exam preparation using EXAM_PREP_MACHINES view
+   * Returns all machines that help practice modules required for the exam
+   */
+  async getMachinesByExam(examId: number): Promise<Array<{
+    machine: Machine;
+    modules: Module[];
+  }>> {
+    try {
+      // Query the EXAM_PREP_MACHINES view
+      const [rows] = await db.query<RowDataPacket[]>(
+        `SELECT
+           machine_id,
+           machine_name,
+           machine_difficulty,
+           machine_os,
+           machine_synopsis,
+           machine_rating,
+           module_id,
+           module_name
+         FROM EXAM_PREP_MACHINES
+         WHERE exam_id = ?
+         ORDER BY machine_name, module_name`,
+        [examId]
+      );
+
+      // Group machines with their related modules
+      const machineMap = new Map<number, {
+        machine: Machine;
+        modules: Module[];
+      }>();
+
+      rows.forEach((row: any) => {
+        const machineId = row.machine_id;
+
+        if (!machineMap.has(machineId)) {
+          machineMap.set(machineId, {
+            machine: {
+              id: row.machine_id,
+              name: row.machine_name,
+              difficulty: row.machine_difficulty,
+              os: row.machine_os,
+              synopsis: row.machine_synopsis,
+              rating: row.machine_rating,
+              url: null,
+              image: null,
+            } as Machine,
+            modules: [],
+          });
+        }
+
+        // Add module to the machine's module list
+        const entry = machineMap.get(machineId)!;
+        entry.modules.push({
+          id: row.module_id,
+          name: row.module_name,
+          description: null,
+          difficulty: null,
+          url: null,
+          image: null,
+        } as Module);
+      });
+
+      return Array.from(machineMap.values());
+    } catch (error) {
+      console.error("Error getting machines by exam:", error);
+      throw new Error("Failed to get machines by exam");
     }
   }
 
@@ -202,39 +282,51 @@ class ExamService {
 
       const exam = examRows[0] as Exam;
 
-      // Get all required modules
+      // Get all required modules using EXAM_GUIDE view
       const [allModulesRows] = await db.query<RowDataPacket[]>(
-        `SELECT m.*
-         FROM modules m
-         JOIN module_exams me ON m.id = me.module_id
-         WHERE me.exam_id = ?`,
+        `SELECT
+           module_id as id,
+           module_name as name,
+           module_description as description,
+           module_difficulty as difficulty,
+           module_tier as tier
+         FROM EXAM_GUIDE
+         WHERE exam_id = ?`,
         [examId]
       );
 
       const totalModules = allModulesRows.length;
 
-      // Get completed modules
+      // Get completed modules using EXAM_GUIDE view
       const [completedRows] = await db.query<RowDataPacket[]>(
-        `SELECT m.*
-         FROM modules m
-         JOIN module_exams me ON m.id = me.module_id
-         JOIN user_modules um ON m.id = um.module_id
-         WHERE me.exam_id = ? AND um.user_id = ?`,
+        `SELECT
+           eg.module_id as id,
+           eg.module_name as name,
+           eg.module_description as description,
+           eg.module_difficulty as difficulty,
+           eg.module_tier as tier
+         FROM EXAM_GUIDE eg
+         JOIN user_modules um ON eg.module_id = um.module_id
+         WHERE eg.exam_id = ? AND um.user_id = ?`,
         [examId, userId]
       );
 
-      // Get incomplete modules
+      // Get incomplete modules using EXAM_GUIDE view
       const [incompleteRows] = await db.query<RowDataPacket[]>(
-        `SELECT m.*
-         FROM modules m
-         JOIN module_exams me ON m.id = me.module_id
-         WHERE me.exam_id = ?
-         AND m.id NOT IN (
+        `SELECT
+           module_id as id,
+           module_name as name,
+           module_description as description,
+           module_difficulty as difficulty,
+           module_tier as tier
+         FROM EXAM_GUIDE
+         WHERE exam_id = ?
+         AND module_id NOT IN (
            SELECT module_id
            FROM user_modules
            WHERE user_id = ?
          )
-         ORDER BY m.name`,
+         ORDER BY module_name`,
         [examId, userId]
       );
 

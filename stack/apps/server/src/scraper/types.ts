@@ -99,7 +99,7 @@ export interface MachineTagsApiResponse {
 export interface ExamData {
   id: number;
   name: string;
-  logo: string;
+  exam_badge: string;
 }
 
 export interface ExamsApiResponse {

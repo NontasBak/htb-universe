@@ -210,6 +210,16 @@ app.get("/api/exams/:id/modules", async (req, res) => {
   }
 });
 
+app.get("/api/exams/:id/machines", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const machinesWithModules = await services.exams.getMachinesByExam(id);
+    res.json(machinesWithModules);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : "Unknown error" });
+  }
+});
+
 // ============================================================================
 // VULNERABILITIES ENDPOINTS
 // ============================================================================

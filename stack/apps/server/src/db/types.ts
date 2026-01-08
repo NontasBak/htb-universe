@@ -339,3 +339,40 @@ export interface GlobalStatistics {
     completions: number;
   }>;
 }
+
+// ============================================================================
+// DATABASE VIEW TYPES
+// ============================================================================
+
+/**
+ * EXAM_GUIDE View
+ * Represents exam-module relationships with full details
+ */
+export interface ExamGuideRow {
+  exam_id: number;
+  exam_name: string | null;
+  exam_logo: string | null;
+  module_id: number;
+  module_name: string | null;
+  module_difficulty: ModuleDifficulty | null;
+  module_description: string | null;
+  module_tier: number | null;
+}
+
+/**
+ * EXAM_PREP_MACHINES View
+ * Represents machines that help prepare for specific exams
+ */
+export interface ExamPrepMachineRow {
+  exam_id: number;
+  exam_name: string | null;
+  exam_logo: string | null;
+  machine_id: number;
+  machine_name: string | null;
+  machine_difficulty: MachineDifficulty | null;
+  machine_os: MachineOS | null;
+  machine_synopsis: string | null;
+  machine_rating: number | null;
+  module_id: number;
+  module_name: string | null;
+}
