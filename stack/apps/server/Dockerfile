@@ -8,7 +8,7 @@ WORKDIR /app
 COPY . .
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm --filter server build
-RUN pnpm --filter server --prod deploy pruned --legacy
+RUN pnpm --filter server --prod deploy pruned
 
 FROM base AS runner
 WORKDIR /app
