@@ -3,7 +3,7 @@
  * Redirects to the main dashboard
  */
 
-import { Navigate } from "react-router";
+import { redirect } from "react-router";
 import type { Route } from "./+types/_index";
 
 export function meta({}: Route.MetaArgs) {
@@ -13,6 +13,10 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
+export async function loader() {
+  return redirect("/dashboard");
+}
+
 export default function Home() {
-  return <Navigate to="/dashboard" replace />;
+  return null;
 }
