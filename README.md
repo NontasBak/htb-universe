@@ -15,18 +15,30 @@ The website can be previewed on https://htb-universe.nontasbak.com
 - **Database:** MySQL
 - **Monorepo:** better-t-stack
 
+# Key Features
+
+- **Module practice**: Find practice machines that help you learn the concepts covered in this module
+- **Machine practice**: Find machines that cover all selected modules
+- **Vulnerability practice**: Find modules that teach these vulnerabilities and machines that contain them
+- **Exam preparation**: Find all relevant modules to take part in an exam
+- **Progress tracking**: Track your progress through the modules, machines and exams
+
 ## Prerequisites
 
 - **Node.js** (v20 or higher)
+- **pnpm** (v10 or higher) - Install with: `npm install -g pnpm`
 - **MySQL** (v8.0 or higher)
 
 ### 1. Install Dependencies
 
 ```bash
 cd stack
-npm install
+pnpm install
 cd ..
 ```
+
+> [!NOTE]
+> This project uses **pnpm** as its package manager. If you don't have it installed, run `npm install -g pnpm` first.
 
 ### 2. Setup MySQL User (if needed)
 
@@ -68,7 +80,7 @@ The default values should work here as well.
 
 ```bash
 cd stack
-npm run dev
+pnpm run dev
 ```
 
 This starts:
