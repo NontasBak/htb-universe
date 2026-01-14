@@ -2,6 +2,9 @@
 
 A metadata management and progress tracking application for the Hack The Box platform, connecting HTB Academy modules with HTB Labs machines.
 
+## Deployment
+The website can be previewed on https://htb-universe.nontasbak.com
+
 ## Tech Stack
 
 - **Language:** TypeScript
@@ -17,13 +20,12 @@ A metadata management and progress tracking application for the Hack The Box pla
 - **Node.js** (v20 or higher)
 - **MySQL** (v8.0 or higher)
 
-## Quick Setup
-
 ### 1. Install Dependencies
 
 ```bash
 cd stack
 npm install
+cd ..
 ```
 
 ### 2. Setup MySQL User (if needed)
@@ -52,7 +54,7 @@ Enter the password when prompted: `admin_pass`
 cp stack/apps/server/.env.example stack/apps/server/.env
 ```
 
-The default values should work if you used the setup script:
+The default values should work.
 
 **Frontend:** Copy and configure `stack/apps/web/.env`:
 
@@ -73,7 +75,8 @@ This starts:
 - **Backend API:** http://localhost:3000
 - **Frontend:** http://localhost:5173
 
-Open your browser and navigate to **http://localhost:5173**
+> [!NOTE] 
+> The website can also be previewed on https://htb-universe.nontasbak.com
 
 ## Test Accounts
 
@@ -87,7 +90,7 @@ You can log in with these pre-made accounts:
 - Email: `admin@admin.com`
 - Password: `admin1234`
 
-## Database Schema
+## Database Schema & Authentication
 
 There are 16 application-specific tables. Since the application uses Better-Auth for authentication, it automatically creates 4 extra tables:
 
@@ -95,5 +98,3 @@ There are 16 application-specific tables. Since the application uses Better-Auth
 - **`account`** - OAuth provider accounts
 - **`session`** - User sessions
 - **`verification`** - Email verification tokens
-
-**Note:** The database also contains a custom `users` table for application-specific data (roles, progress tracking). The `user_sync` table keeps both user tables synchronized.

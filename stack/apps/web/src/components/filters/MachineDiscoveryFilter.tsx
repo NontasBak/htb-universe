@@ -152,12 +152,6 @@ export function MachineDiscoveryFilter({ onApply, isLoading, isPreloading, modul
         )}
       </div>
 
-      <div className="rounded-md bg-muted/50 p-3">
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Find machines that cover ALL selected modules (intersection logic).
-        </p>
-      </div>
-
       <Button
         onClick={handleApply}
         disabled={selectedIds.length === 0 || isLoading || isPreloading}

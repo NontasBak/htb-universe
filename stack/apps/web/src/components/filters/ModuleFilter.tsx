@@ -112,12 +112,6 @@ export function ModuleFilter({ onApply, isLoading, isPreloading, modules }: Modu
         )}
       </div>
 
-      <div className="rounded-md bg-muted/50 p-3">
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Find practice machines that help you learn the concepts covered in this module.
-        </p>
-      </div>
-
       <Button
         onClick={handleApply}
         disabled={!selectedModuleId || isLoading || isPreloading}

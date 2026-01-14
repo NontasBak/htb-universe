@@ -51,7 +51,14 @@ export function ModuleCard({
       onClick={handleCardClick}
     >
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-3">
+          {module.image && (
+            <img
+              src={module.image}
+              alt={module.name || "Module"}
+              className="h-12 w-12 rounded object-cover shrink-0"
+            />
+          )}
           <div className="flex-1 min-w-0">
             <CardTitle className="text-lg line-clamp-1">
               {module.name || "Unnamed Module"}

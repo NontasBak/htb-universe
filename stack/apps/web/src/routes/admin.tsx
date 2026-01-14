@@ -598,7 +598,14 @@ function MachineManagement() {
             return (
               <Card key={machine.id} className="relative">
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2 min-w-0">
+                  <div className="flex items-start gap-3 min-w-0">
+                    {machine.image && (
+                      <img
+                        src={machine.image}
+                        alt={machine.name}
+                        className="h-12 w-12 rounded object-cover shrink-0"
+                      />
+                    )}
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-base break-words">{machine.name}</CardTitle>
                     </div>
@@ -763,7 +770,14 @@ function ModuleManagement() {
             return (
               <Card key={module.id} className="relative">
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2 min-w-0">
+                  <div className="flex items-start gap-3 min-w-0">
+                    {module.image && (
+                      <img
+                        src={module.image}
+                        alt={module.name}
+                        className="h-12 w-12 rounded object-cover shrink-0"
+                      />
+                    )}
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-base break-words">{module.name}</CardTitle>
                     </div>

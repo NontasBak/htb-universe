@@ -78,7 +78,14 @@ export function MachineCard({
       onClick={handleCardClick}
     >
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-3">
+          {machine.image && (
+            <img
+              src={machine.image}
+              alt={machine.name || "Machine"}
+              className="h-12 w-12 rounded object-cover shrink-0"
+            />
+          )}
           <div className="flex-1 min-w-0">
             <CardTitle className="text-lg line-clamp-1">
               {machine.name || "Unnamed Machine"}

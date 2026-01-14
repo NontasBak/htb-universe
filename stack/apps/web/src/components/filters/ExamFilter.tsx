@@ -112,12 +112,6 @@ export function ExamFilter({ onApply, isLoading, isPreloading, exams }: ExamFilt
         )}
       </div>
 
-      <div className="rounded-md bg-muted/50 p-3">
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Find all modules required to prepare for this certification exam.
-        </p>
-      </div>
-
       <Button
         onClick={handleApply}
         disabled={!selectedExamId || isLoading || isPreloading}

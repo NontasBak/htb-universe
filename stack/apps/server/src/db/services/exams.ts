@@ -52,7 +52,9 @@ class ExamService {
            m.id,
            m.name,
            m.description,
-           m.difficulty
+           m.difficulty,
+           m.url,
+           m.image
          FROM modules m
          JOIN module_exams me ON m.id = me.module_id
          WHERE me.exam_id = ?
@@ -81,7 +83,9 @@ class ExamService {
            m.id,
            m.name,
            m.description,
-           m.difficulty
+           m.difficulty,
+           m.url,
+           m.image
          FROM modules m
          JOIN module_exams me ON m.id = me.module_id
          WHERE me.exam_id = ?
@@ -291,7 +295,9 @@ class ExamService {
            m.id,
            m.name,
            m.description,
-           m.difficulty
+           m.difficulty,
+           m.url,
+           m.image
          FROM modules m
          JOIN module_exams me ON m.id = me.module_id
          WHERE me.exam_id = ?`,
@@ -306,7 +312,9 @@ class ExamService {
            m.id,
            m.name,
            m.description,
-           m.difficulty
+           m.difficulty,
+           m.url,
+           m.image
          FROM modules m
          JOIN module_exams me ON m.id = me.module_id
          JOIN user_modules um ON m.id = um.module_id
@@ -320,7 +328,9 @@ class ExamService {
            m.id,
            m.name,
            m.description,
-           m.difficulty
+           m.difficulty,
+           m.url,
+           m.image
          FROM modules m
          JOIN module_exams me ON m.id = me.module_id
          WHERE me.exam_id = ?

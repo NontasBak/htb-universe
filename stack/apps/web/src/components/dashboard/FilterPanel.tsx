@@ -124,36 +124,60 @@ export function FilterPanel({
       <CardContent className="pt-2">
 
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-2 gap-2 p-1 bg-muted/50 mb-4 h-auto!">
+          <TabsList className="grid w-full grid-cols-1 gap-2 p-1 bg-muted/50 mb-4 h-auto!">
             <TabsTrigger
               value="exam"
-              className="flex flex-col items-center gap-1.5 py-3 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-auto!"
+              className="flex flex-row items-center justify-start gap-2 py-2 px-3 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-auto!"
             >
               <GraduationCap className="h-4 w-4" />
-              <span>Exam Prep</span>
+              <span>Exam preparation</span>
             </TabsTrigger>
             <TabsTrigger
               value="module"
-              className="flex flex-col items-center gap-1.5 py-3 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-auto!"
+              className="flex flex-row items-center justify-start gap-2 py-2 px-3 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-auto!"
             >
               <BookOpen className="h-4 w-4" />
-              <span>Practice</span>
+              <span>Module practice</span>
             </TabsTrigger>
             <TabsTrigger
               value="vulnerability"
-              className="flex flex-col items-center gap-1.5 py-3 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-auto!"
+              className="flex flex-row items-center justify-start gap-2 py-2 px-3 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-auto!"
             >
               <ShieldAlert className="h-4 w-4" />
-              <span>Vulnerability</span>
+              <span>Vulnerability practice</span>
             </TabsTrigger>
             <TabsTrigger
               value="machines"
-              className="flex flex-col items-center gap-1.5 py-3 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-auto!"
+              className="flex flex-row items-center justify-start gap-2 py-2 px-3 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground h-auto!"
             >
               <Search className="h-4 w-4" />
-              <span>Discovery</span>
+              <span>Machine practice</span>
             </TabsTrigger>
           </TabsList>
+
+          {/* Explanations */}
+          <div className="mb-4 rounded-md bg-muted/50 p-3">
+            {activeTab === "exam" && (
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Find all modules required to prepare for this certification exam.
+              </p>
+            )}
+            {activeTab === "module" && (
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Find practice machines that help you learn the concepts covered in this module.
+              </p>
+            )}
+            {activeTab === "vulnerability" && (
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Find modules that teach these vulnerabilities and machines that contain them.
+              </p>
+            )}
+            {activeTab === "machines" && (
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Find machines that cover all selected modules.
+              </p>
+            )}
+          </div>
 
           <div>
             <TabsContent value="exam" className="mt-0">

@@ -164,7 +164,15 @@ export function MachineDetailDialog({
           <ScrollArea className="max-h-[75vh] pr-4">
             <DialogHeader>
               <div className="flex items-start gap-3 pr-8">
-                <Monitor className="h-8 w-8 shrink-0 text-muted-foreground" />
+                {machine.image ? (
+                  <img
+                    src={machine.image}
+                    alt={machine.name || "Machine"}
+                    className="h-16 w-16 rounded object-cover shrink-0"
+                  />
+                ) : (
+                  <Monitor className="h-8 w-8 shrink-0 text-muted-foreground" />
+                )}
                 <div className="flex-1 min-w-0">
                   <DialogTitle className="text-2xl">
                     {machine.name || "Unnamed Machine"}

@@ -457,7 +457,14 @@ export default function Profile() {
                       className={`transition-all flex flex-col ${isCompleted ? "border-green-500 border-2" : ""}`}
                     >
                       <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-3">
+                          {machine.image && (
+                            <img
+                              src={machine.image}
+                              alt={machine.name || "Machine"}
+                              className="h-12 w-12 rounded object-cover shrink-0"
+                            />
+                          )}
                           <div className="flex items-start gap-2 flex-1 min-w-0">
                             <Checkbox
                               checked={isCompleted}
@@ -615,7 +622,14 @@ export default function Profile() {
                       className={`transition-all flex flex-col ${isCompleted ? "border-green-500 border-2" : ""}`}
                     >
                       <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-3">
+                          {module.image && (
+                            <img
+                              src={module.image}
+                              alt={module.name || "Module"}
+                              className="h-12 w-12 rounded object-cover shrink-0"
+                            />
+                          )}
                           <div className="flex items-start gap-2 flex-1 min-w-0">
                             <Checkbox
                               checked={isCompleted}
@@ -748,7 +762,14 @@ export default function Profile() {
                       className={`transition-all flex flex-col ${isCompleted ? "border-green-500 border-2" : ""}`}
                     >
                       <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-3">
+                          {exam.logo && (
+                            <img
+                              src={exam.logo}
+                              alt={exam.name || "Exam"}
+                              className="h-12 w-12 rounded object-contain shrink-0"
+                            />
+                          )}
                           <div className="flex items-start gap-2 flex-1 min-w-0">
                             <Checkbox
                               checked={isCompleted}
